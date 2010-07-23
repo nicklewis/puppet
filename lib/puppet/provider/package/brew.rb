@@ -6,30 +6,26 @@ Puppet::Type.type(:package).provide :brew, :parent => Puppet::Provider::Package 
 
     commands :brewcmd => "brew"
 
+    has_feature :versionable
+
     def install
-        command = [command(:brewcmd), "install"]
-        command << resource[:name]
+        command = [command(:brewcmd), "install", resource[:name]]
         output = execute(command)
-        unless $? == 0
-            self.fail "Could not install: %s" % output.chomp
-        end
     end
 
     def uninstall
-        command = [command(:brewcmd), "uninstall"]
-        command << resource[:name]
+        command = [command(:brewcmd), "uninstall", resource[:name]]
         output = execute(command)
-        unless $? == 0
-            self.fail "Could not uninstall: %s" % output.chomp
-        end
     end
 
     def update
-        command = [command(:brewcmd), "update", resource[:name]]
-        output = execute(command)
-        unless $? == 0
-            self.fail "Could not update: %s" % output.chomp
-        end
+        install
+        cleanup
+    end
+
+    def cleanup
+      command = [command(:brewcmd), "cleanup", resource[:name]]
+      execute(command)
     end
 
     def query
@@ -45,9 +41,6 @@ Puppet::Type.type(:package).provide :brew, :parent => Puppet::Provider::Package 
     def self.cellar
         command = [command(:brewcmd), "list"]
         output = execute(command)
-        unless $? == 0
-            raise Puppet::Error.new "Could not list packages: %s" % output.chomp
-        end
         output.split.collect do |keg|
             { :name => keg, :ensure => :present, :provider => :brew }
         end
