@@ -65,11 +65,11 @@ catalog_file = File.new("#{node}.catalog.pson", "w")
 catalog_file.write compiled_catalog_pson_string
 catalog_file.close
 
-File.open('modulepath', 'w') {|f| f.write(modulepath)}
+File.open("#{node}.modulepath", 'w') {|f| f.write(modulepath)}
 
 tarred_filename = "#{node}.compiled_catalog_with_files.tar.gz"
-`tar -cPzf #{tarred_filename} #{catalog_file.path} modulepath #{paths.join(' ')}`
+`tar -cPzf #{tarred_filename} #{catalog_file.path} #{node}.modulepath #{paths.join(' ')}`
 puts "Created #{tarred_filename} with the compiled catalog for node #{node} and the necessary files"
 
 File.delete(catalog_file.path)
-File.delete("modulepath")
+File.delete("#{node}.modulepath")
