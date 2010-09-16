@@ -1,19 +1,22 @@
 #!/usr/bin/ruby
 require 'getoptlong'
 opts = GetoptLong.new(
-  [ '--node',       '-n', GetoptLong::REQUIRED_ARGUMENT ],
-  [ '--modulepath', '-m', GetoptLong::OPTIONAL_ARGUMENT ]
+  [ '--node',           '-n', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--modulepath',     '-m', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--external_nodes', '-e', GetoptLong::OPTIONAL_ARGUMENT ]
 )
 
 require 'puppet'
 
-node, modulepath = nil, Puppet[:modulepath]
+node, external_nodes, modulepath = nil, nil, Puppet[:modulepath]
 opts.each do |opt, arg|
   case opt
     when '--node'
       node = arg
     when '--modulepath'
       modulepath = arg
+    when '--external_nodes'
+      external_nodes = arg
   end
 end
 
@@ -21,6 +24,13 @@ Puppet[:modulepath] = modulepath
 
 # tell puppet to get facts from yaml
 Puppet::Node::Facts.terminus_class = :yaml
+
+if external_nodes
+  # use the external nodes tool - should read from puppet's puppet.conf
+  # but doesn't read from the master section because run_mode can't be set.  ticket #4790
+  Puppet[:node_terminus] = :exec
+  Puppet[:external_nodes] = external_nodes
+end
 
 # we're running this on the server but Puppet.run_mode doesn't know that in this script
 # so it ends up using clientyamldir
@@ -60,6 +70,7 @@ end
 #paths = paths.select {|path| File.exist?(path)}
 require 'pp'
 pp paths
+puts compiled_catalog_pson_string
 
 catalog_file = File.new("#{node}.catalog.pson", "w")
 catalog_file.write compiled_catalog_pson_string
