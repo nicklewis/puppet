@@ -4,6 +4,7 @@ require File.dirname(__FILE__) + '/../../spec_helper'
 require 'puppet'
 require 'puppet/sslcertificates'
 require 'puppet/sslcertificates/ca'
+require 'tempfile'
 
 describe Puppet::SSLCertificates::CA do
   before :all do
