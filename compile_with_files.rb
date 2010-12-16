@@ -1,15 +1,19 @@
 #!/usr/bin/ruby
+#
+# Copyright PuppetLabs 2010
+
 require 'getoptlong'
+require 'puppet'
+
 opts = GetoptLong.new(
+  [ '--debug',          '-d', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--help',           '-h', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--node',           '-n', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--modulepath',     '-m', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--external_nodes', '-e', GetoptLong::OPTIONAL_ARGUMENT ]
-  [ '--debug',          '-d', GetoptLong::OPTIONAL_ARGUMENT ]
 )
 
-require 'puppet'
-
-node, external_nodes, modulepath = nil, nil, Puppet[:modulepath]
+node, external_nodes, modulepath, debug = nil, nil, Puppet[:modulepath], false
 opts.each do |opt, arg|
   case opt
     when '--node'
@@ -20,12 +24,14 @@ opts.each do |opt, arg|
       external_nodes = arg
     when '--debug'
       debug = true
+    when '--help'
+      puts "Usage: compile_with_files.rb [-h] [-d] [-m modulepath] [-e ENC_script] -n node_certname [/path/to/site.pp]"
+      exit(1)
   end
 end
 
-puts ARGV[0]
-
 Puppet[:modulepath] = modulepath
+Puppet[:manifest] = ARGV[0] if defined?ARGV[0]
 
 # tell puppet to get facts from yaml
 Puppet::Node::Facts.terminus_class = :yaml
@@ -85,7 +91,7 @@ File.open("#{node}.modulepath", 'w') {|f| f.write(modulepath)}
 
 tarred_filename = "#{node}.compiled_catalog_with_files.tar.gz"
 `tar -cPzf #{tarred_filename} #{catalog_file.path} #{node}.modulepath #{paths.join(' ')}`
-puts "Created #{tarred_filename} with the compiled catalog for node #{node} and the necessary files"
+puts "Created #{tarred_filename} with the compiled catalog for node #{node} and the necessary files" if debug
 
 File.delete(catalog_file.path)
 File.delete("#{node}.modulepath")
