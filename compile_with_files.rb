@@ -4,34 +4,44 @@
 
 require 'getoptlong'
 require 'puppet'
+require 'pp'
 
 opts = GetoptLong.new(
-  [ '--debug',          '-d', GetoptLong::OPTIONAL_ARGUMENT ],
-  [ '--help',           '-h', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--node',           '-n', GetoptLong::REQUIRED_ARGUMENT ],
-  [ '--modulepath',     '-m', GetoptLong::OPTIONAL_ARGUMENT ],
-  [ '--external_nodes', '-e', GetoptLong::OPTIONAL_ARGUMENT ]
+  [ '--confdir',        '-c', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--vardir',         '-v', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--modulepath',     '-p', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--external_nodes', '-e', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--manifest',       '-m', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--debug',          '-d', GetoptLong::NO_ARGUMENT ],
+  [ '--help',           '-h', GetoptLong::NO_ARGUMENT ]
 )
 
+version        = "1.0"
 node, external_nodes, modulepath, debug = nil, nil, Puppet[:modulepath], false
 opts.each do |opt, arg|
   case opt
     when '--node'
       node = arg
+    when '--confdir'
+      Puppet[:confdir] = arg
+    when '--vardir'
+      Puppet[:vardir] =arg
     when '--modulepath'
-      modulepath = arg
+      Puppet[:modulepath] = arg
     when '--external_nodes'
       external_nodes = arg
+    when '--manifest'
+      Puppet[:manifest] = arg
     when '--debug'
       debug = true
     when '--help'
-      puts "Usage: compile_with_files.rb [-h] [-d] [-m modulepath] [-e ENC_script] -n node_certname [/path/to/site.pp]"
+      puts "Usage: compile_with_files.rb [-h] [-d] [-p modulepath] [-e ENC_script] [-m manifest file] -n node_certname"
       exit(1)
   end
 end
 
-Puppet[:modulepath] = modulepath
-Puppet[:manifest] = ARGV[0] if defined?ARGV[0]
+#Puppet[:manifest] = ARGV[0] if defined?ARGV[0]
 
 # tell puppet to get facts from yaml
 Puppet::Node::Facts.terminus_class = :yaml
@@ -79,9 +89,8 @@ end
 #end
 #
 #paths = paths.select {|path| File.exist?(path)}
-require 'pp'
 pp paths if debug
-puts compiled_catalog_pson_string if debug
+pp compiled_catalog_pson_string if debug
 
 catalog_file = File.new("#{node}.catalog.pson", "w")
 catalog_file.write compiled_catalog_pson_string
