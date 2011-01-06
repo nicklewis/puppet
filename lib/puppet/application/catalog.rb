@@ -12,16 +12,16 @@ class Puppet::Application::Catalog < Puppet::Application
   option("--list RESOURCE", "-l") do |arg|
     @res = arg
   end
-
-  option("--catalog CATALOG", "-c") do |arg|
-    $catalog_file = arg
+  option("--node node_certname", "-c") do |arg|
+    @cert = arg
   end
 
   def main
-    unless catalog = Puppet::Resource::Catalog.indirection.find(Puppet[:certname])
+    unless catalog = Puppet::Resource::Catalog.indirection.find(@cert)
       raise "Could not find catalog for #{Puppet[:certname]}"
     end
-      compiled_catalog_pson_string = catalog.to_pson
+      catalog_pson_string = catalog.to_pson
+      pp catalog_pson_string if options[:debug]
 
       paths = catalog.vertices.
         select {|vertex| vertex.type == "File"}.
