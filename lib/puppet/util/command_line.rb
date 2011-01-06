@@ -14,7 +14,7 @@ module Puppet
         'resource'   => 'ralsh',
         'kick'       => 'puppetrun',
         'master'     => 'puppetmasterd',
-        'catalog'    => 'puppetcatalog',
+        #'catalog'    => 'puppetcatalog',
 
       })
 
