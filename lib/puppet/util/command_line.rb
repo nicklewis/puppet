@@ -14,7 +14,8 @@ module Puppet
         'resource'   => 'ralsh',
         'kick'       => 'puppetrun',
         'master'     => 'puppetmasterd',
-        
+        'catalog'    => 'puppetcatalog',
+
       })
 
       def initialize( zero = $0, argv = ARGV, stdin = STDIN )
