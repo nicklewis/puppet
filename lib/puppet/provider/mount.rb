@@ -33,8 +33,8 @@ module Puppet::Provider::Mount
     umount resource[:name]
   end
 
-  # Is the mount currently mounted?
-  def mounted?
+  # Is anything currently mounted at this point?
+  def anything_mounted?
     platform = Facter.value("operatingsystem")
     name = resource[:name]
     mounts = mountcmd.split("\n").find do |line|
@@ -47,6 +47,25 @@ module Puppet::Provider::Mount
         line.split(/\s+/)[1] == name
       else
         line =~ / on #{name} /
+      end
+    end
+  end
+
+  # Is the desired thing mounted at this point?
+  def correctly_mounted?
+    platform = Facter.value("operatingsystem")
+    name = resource[:name]
+    device = resource[:device]
+    mounts = mountcmd.split("\n").find do |line|
+      case platform
+      when "Darwin"
+        line =~ /^#{device} on #{name} / or line =~ %r{^#{device} on /private/var/automount#{name}}
+      when "Solaris", "HP-UX"
+        line =~ /^#{name} on #{device}/
+      when "AIX"
+        line.split(/\s+/)[1] == name
+      else
+        line =~ /^#{device} on #{name} /
       end
     end
   end
