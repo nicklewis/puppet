@@ -76,70 +76,90 @@ describe Puppet::Provider::Mount do
   end
 
   describe Puppet::Provider::Mount, " when unmounting" do
-
     it "should call the :umount command with the resource name" do
       @mounter.expects(:umount).with(@name)
       @mounter.unmount
     end
   end
 
-  describe Puppet::Provider::Mount, " when determining if it is mounted" do
+  describe Puppet::Provider::Mount do
+    %w{Darwin Solaris HP-UX AIX Other}.each do |platform|
+      describe "on #{platform}" do
+        before :each do
+          case platform
+          when 'Darwin'
+            mount_fixture = 'mount-output.darwin.txt'
+            @mount_device = '/dev/disk0s3'
+            @mount_point = '/usr'
+          when 'Solaris'
+            mount_fixture = 'mount-output.solaris.txt'
+            @mount_device = 'swap'
+            @mount_point = '/tmp'
+          when 'HP-UX'
+            mount_fixture = 'mount-output.hp-ux.txt'
+            @mount_device = 'swap'
+            @mount_point = '/tmp'
+          when 'AIX'
+            mount_fixture = 'mount-output.aix.txt'
+            @mount_device = '/dev/hd2'
+            @mount_point = '/usr'
+          when 'Other'
+            mount_fixture = 'mount-output.other.txt'
+            @mount_device = '/dev/sda2'
+            @mount_point = '/usr'
+          end
+          @mount_data = File.read(File.join(File.dirname(__FILE__), '..', '..', 'fixtures', 'unit', 'provider', 'mount', mount_fixture))
+          Facter.stubs(:value).with("operatingsystem").returns(platform)
+        end
 
-    it "should parse the results of running the mount command with no arguments" do
-      Facter.stubs(:value).returns("whatever")
-      @mounter.expects(:mountcmd).returns("")
+        describe "when the correct thing is mounted" do
+          before :each do
+            @mounter.expects(:mountcmd).returns(@mount_data)
+            @resource.stubs(:[]).with(:name).returns(@mount_point)
+            @resource.stubs(:[]).with(:device).returns(@mount_device)
+          end
 
-      @mounter.mounted?
-    end
+          it "should say anything_mounted?" do
+            @mounter.should be_anything_mounted
+          end
 
-    it "should match ' on /private/var/automount<name>' if the operating system is Darwin" do
-      Facter.stubs(:value).with("operatingsystem").returns("Darwin")
-      @mounter.expects(:mountcmd).returns("/dev/whatever on /private/var/automount/\ndevfs on /dev")
+          it "should say correctly_mounted?" do
+            @mounter.should be_correctly_mounted
+          end
+        end
 
-      @mounter.should be_mounted
-    end
+        describe "when the wrong thing is mounted" do
+          before :each do
+            @mounter.expects(:mountcmd).returns(@mount_data)
+            @resource.stubs(:[]).with(:name).returns(@mount_point)
+            @resource.stubs(:[]).with(:device).returns('/dev/bogus/thing')
+          end
 
-    it "should match ' on <name>' if the operating system is Darwin" do
-      Facter.stubs(:value).with("operatingsystem").returns("Darwin")
-      @mounter.expects(:mountcmd).returns("/dev/disk03 on / (local, journaled)\ndevfs on /dev")
+          it "should say anything_mounted?" do
+            @mounter.should be_anything_mounted
+          end
 
-      @mounter.should be_mounted
-    end
+          it "should not say correctly_mounted?" do
+            @mounter.should_not be_correctly_mounted
+          end
+        end
 
-    it "should match '^<name> on' if the operating system is Solaris" do
-      Facter.stubs(:value).with("operatingsystem").returns("Solaris")
-      @mounter.expects(:mountcmd).returns("/ on /dev/dsk/whatever\n/var on /dev/dsk/other")
+        describe "when nothing is mounted" do
+          before :each do
+            @mounter.expects(:mountcmd).returns(@mount_data)
+            @resource.stubs(:[]).with(:name).returns('/bogus/location')
+            @resource.stubs(:[]).with(:device).returns(@mount_device)
+          end
 
-      @mounter.should be_mounted
-    end
+          it "should not say anything_mounted?" do
+            @mounter.should_not be_anything_mounted
+          end
 
-    it "should match '^<name> on' if the operating system is HP-UX" do
-      Facter.stubs(:value).with("operatingsystem").returns("HP-UX")
-      @mounter.expects(:mountcmd).returns("/ on /dev/dsk/whatever\n/var on /dev/dsk/other")
-
-      @mounter.should be_mounted
-    end
-
-    it "should match mounted devices if the operating system is AIX" do
-      Facter.stubs(:value).with("operatingsystem").returns("AIX")
-      mount_data = File.read(File.join(File.dirname(__FILE__), '..', '..', 'fixtures', 'unit', 'provider', 'mount', 'mount-output.aix.txt'))
-      @mounter.expects(:mountcmd).returns(mount_data)
-
-      @mounter.should be_mounted
-    end
-
-    it "should match ' on <name>' if the operating system is not Darwin, Solaris, or HP-UX" do
-      Facter.stubs(:value).with("operatingsystem").returns("Debian")
-      @mounter.expects(:mountcmd).returns("/dev/dsk/whatever on / and stuff\n/dev/other/disk on /var and stuff")
-
-      @mounter.should be_mounted
-    end
-
-    it "should not be considered mounted if it did not match the mount output" do
-      Facter.stubs(:value).with("operatingsystem").returns("Debian")
-      @mounter.expects(:mountcmd).returns("/dev/dsk/whatever on /something/else and stuff\n/dev/other/disk on /var and stuff")
-
-      @mounter.should_not be_mounted
+          it "should not say correctly_mounted?" do
+            @mounter.should_not be_correctly_mounted
+          end
+        end
+      end
     end
   end
 end

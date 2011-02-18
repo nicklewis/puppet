@@ -42,9 +42,10 @@ module Puppet::Provider::Mount
       when "Darwin"
         line =~ / on #{name} / or line =~ %r{ on /private/var/automount#{name}}
       when "Solaris", "HP-UX"
+        # Yes, Solaris does list mounts as "mount_point on device"
         line =~ /^#{name} on /
       when "AIX"
-        line.split(/\s+/)[1] == name
+        line.split(/\s+/)[2] == name
       else
         line =~ / on #{name} /
       end
@@ -61,9 +62,11 @@ module Puppet::Provider::Mount
       when "Darwin"
         line =~ /^#{device} on #{name} / or line =~ %r{^#{device} on /private/var/automount#{name}}
       when "Solaris", "HP-UX"
+        # Yes, Solaris does list mounts as "mount_point on device"
         line =~ /^#{name} on #{device}/
       when "AIX"
-        line.split(/\s+/)[1] == name
+        line.split(/\s+/)[2] == name &&
+          line.split(/\s+/)[1] == device
       else
         line =~ /^#{device} on #{name} /
       end
