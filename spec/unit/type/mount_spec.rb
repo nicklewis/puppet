@@ -54,11 +54,9 @@ end
 
 describe Puppet::Type.type(:mount)::Ensure do
   before :each do
-    @provider = stub 'provider', :class => Puppet::Type.type(:mount).defaultprovider, :clear => nil, :satisfies? => true, :name => :mock
-    Puppet::Type.type(:mount).defaultprovider.stubs(:new).returns(@provider)
     @mount = Puppet::Type.type(:mount).new(:name => "yay", :check => :ensure)
-
-    @ensure = @mount.property(:ensure)
+    @provider = Puppet::Type.type(:mount).defaultprovider.new(@mount)
+    Puppet::Type.type(:mount).defaultprovider.stubs(:new).returns(@provider)
   end
 
   def mount_stub(params)
@@ -74,17 +72,16 @@ describe Puppet::Type.type(:mount)::Ensure do
     end
   end
 
-  describe Puppet::Type.type(:mount)::Ensure, "when retrieving its current state" do
-
+  describe "when retrieving its current state" do
     it "should return the provider's value if it is :absent" do
-      @provider.expects(:ensure).returns(:absent)
-      @ensure.retrieve.should == :absent
+      @provider.ensure = :absent
+      @mount.property(:ensure).retrieve.should == :absent
     end
 
     it "should return :mounted if the provider indicates it is mounted and the value is not :absent" do
-      @provider.expects(:ensure).returns(:present)
+      @provider.ensure = :present
       @provider.expects(:correctly_mounted?).returns(true)
-      @ensure.retrieve.should == :mounted
+      @mount.property(:ensure).retrieve.should == :mounted
     end
 
     it "should return :unmounted if the provider indicates it is not mounted and the value is not :absent" do
@@ -94,8 +91,7 @@ describe Puppet::Type.type(:mount)::Ensure do
     end
   end
 
-  describe Puppet::Type.type(:mount)::Ensure, "when changing the host" do
-
+  describe "when changing the host" do
     it "should destroy itself if it should be absent" do
       @provider.stubs(:anything_mounted?).returns(false)
       @provider.expects(:destroy)
@@ -206,8 +202,7 @@ describe Puppet::Type.type(:mount)::Ensure do
     end
   end
 
-  describe Puppet::Type.type(:mount), "when responding to events" do
-
+  describe "when responding to events" do
     it "should remount if it is currently mounted" do
       @provider.expects(:anything_mounted?).returns(true)
       @provider.expects(:remount)
@@ -228,6 +223,23 @@ describe Puppet::Type.type(:mount)::Ensure do
 
       @mount.refresh
     end
+  end
+
+  describe "when ensuring mounted" do
+    it "and the correct thing is mounted should not mount or unmount anything" do
+      @ensure.stubs(:syncothers)
+      @provider.stubs(:correctly_mounted?).returns(true)
+      @provider.expects(:mount).never
+      @provider.expects(:unmount).never
+      @provider.expects(:create).never
+
+      @ensure.should = :mounted
+
+      @provider.sync
+    end
+
+    it "and the wrong this is mounted should unmount the wrong thing, then mount the correct thing"
+    it "and nothing is mounted should mount the correct thing"
   end
 end
 

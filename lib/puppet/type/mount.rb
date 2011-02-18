@@ -52,7 +52,6 @@ module Puppet
 
         syncothers
 
-        # The fs can be already mounted if it was absent but mounted
         if provider.correctly_mounted?
           # Nothing to do!
         else
