@@ -2,6 +2,8 @@
 
 Dir.chdir(File.dirname(__FILE__)) { (s = lambda { |f| File.exist?(f) ? require(f) : Dir.chdir("..") { s.call(f) } }).call("spec/spec_helper.rb") }
 
+require 'puppet/network/resolver'
+
 content = Puppet::Type.type(:file).attrclass(:content)
 describe content do
   before do
@@ -347,11 +349,11 @@ describe content do
       before(:each) do
         @response = stub_everything 'mock response', :code => "404"
         @conn = stub_everything 'connection'
-        @conn.stubs(:request_get).yields(@response)
+        @conn.stubs(:get).returns(@response)
         Puppet::Network::HttpPool.stubs(:http_instance).returns @conn
 
         @content.stubs(:actual_content).returns(nil)
-        @source = stub_everything 'source', :local? => false, :full_path => "/path/to/source", :server => "server", :port => 1234
+        @source = stub_everything 'source', :server? => true, :local? => false, :full_path => "/path/to/source", :server => "server", :port => 1234
         @resource.stubs(:parameter).with(:source).returns @source
 
         @sum = stub_everything 'sum'
@@ -367,7 +369,7 @@ describe content do
       end
 
       it "should send the correct indirection uri" do
-        @conn.expects(:request_get).with { |uri,headers| uri == "/production/file_content/path/to/source" }.yields(@response)
+        @conn.expects(:get).with { |uri,headers| uri == "/production/file_content/path/to/source" }.returns(@response)
         @content.write(@fh)
       end
 

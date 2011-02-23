@@ -4,6 +4,7 @@ require 'uri'
 require 'puppet/network/http_pool'
 require 'puppet/network/http/api/v1'
 require 'puppet/network/http/compression'
+require 'puppet/network/resolver'
 
 # Access objects via REST
 class Puppet::Indirector::REST < Puppet::Indirector::Terminus
@@ -19,17 +20,44 @@ class Puppet::Indirector::REST < Puppet::Indirector::Terminus
     @server_setting = setting
   end
 
-  def self.server
-    Puppet.settings[server_setting || :server]
-  end
-
   # Specify the setting that we should use to get the port.
   def self.use_port_setting(setting)
     @port_setting = setting
   end
 
+  def self.server
+    Puppet.settings[server_setting || :server]
+  end
+
   def self.port
     Puppet.settings[port_setting || :masterport].to_i
+  end
+
+  def resolve(request)
+    if !Puppet.settings[:use_srv_records] or request.server or self.class.server_setting or self.class.port_setting
+      request.server ||= self.class.server
+      request.port ||= self.class.port
+      yield request
+      return
+    end
+
+    # Finally, find a working SRV record, if none ...
+    Puppet::Network::Resolver.by_srv(Puppet.settings[:srv_record]) do |srv_server, srv_port|
+      begin
+        request.server = srv_server
+        request.port   = srv_port
+        yield request
+        return
+      rescue SystemCallError => e
+        Puppet.warning "Error connecting to #{srv_server}:#{srv_port}: #{e.message}"
+      end
+    end
+
+    # ... Fall back onto the default server.
+    Puppet.debug "No more servers left, falling back to #{self.class.server}"
+    request.server = self.class.server
+    request.port = self.class.port
+    yield request
   end
 
   # Figure out the content type, turn that into a format, and use the format
@@ -72,8 +100,15 @@ class Puppet::Indirector::REST < Puppet::Indirector::Terminus
   end
 
   def find(request)
-    return nil unless result = deserialize(network(request).get(indirection2uri(request), headers))
+    result = nil
+
+    resolve(request) do |request|
+      result = deserialize(network(request).get(indirection2uri(request), headers)) 
+    end
+      
+    return nil unless result
     result.name = request.key if result.respond_to?(:name=)
+
     result
   end
 
@@ -91,20 +126,29 @@ class Puppet::Indirector::REST < Puppet::Indirector::Terminus
   end
 
   def search(request)
-    unless result = deserialize(network(request).get(indirection2uri(request), headers), true)
-      return []
+    result = nil
+
+    resolve(request) do |request| 
+      result = deserialize(network(request).get(indirection2uri(request), headers), true)
     end
-    result
+
+    result || []
   end
 
   def destroy(request)
     raise ArgumentError, "DELETE does not accept options" unless request.options.empty?
-    deserialize network(request).delete(indirection2uri(request), headers)
+
+    resolve(request) do |request| 
+      return deserialize network(request).delete(indirection2uri(request), headers)
+    end
   end
 
   def save(request)
     raise ArgumentError, "PUT does not accept options" unless request.options.empty?
-    deserialize network(request).put(indirection2uri(request), request.instance.render, headers.merge({ "Content-Type" => request.instance.mime }))
+
+    resolve(request) do |request|
+      return deserialize network(request).put(indirection2uri(request), request.instance.render, headers.merge({ "Content-Type" => request.instance.mime }))
+    end
   end
 
   private

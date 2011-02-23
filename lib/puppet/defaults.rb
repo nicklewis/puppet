@@ -511,7 +511,16 @@ module Puppet
       :mode => 0640,
       :desc => "The log file for puppet agent.  This is generally not used."
     },
-    :server => ["puppet", "The server to which server puppet agent should connect"],
+    :server => { 
+      :default => "puppet",
+      :desc => "The server to which server puppet agent should connect",
+      :call_on_define => false, 
+      :hook => proc do
+        Puppet.settings[:use_srv_records] = false
+      end
+    },
+    :use_srv_records => [true, "Whether the server will search for SRV records in DNS for the current domain"],
+    :srv_record => [ "_puppet._tcp.#{domain}", "The default SRV record which will be queried to find a server"],
     :ignoreschedules => [false,
       "Boolean; whether puppet agent should ignore schedules.  This is useful
       for initial puppet agent runs."],
