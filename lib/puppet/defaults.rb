@@ -511,10 +511,10 @@ module Puppet
       :mode => 0640,
       :desc => "The log file for puppet agent.  This is generally not used."
     },
-    :server => { 
+    :server => {
       :default => "puppet",
       :desc => "The server to which server puppet agent should connect",
-      :call_on_define => false, 
+      :call_on_define => false,
       :hook => proc do
         Puppet.settings[:use_srv_records] = false
       end

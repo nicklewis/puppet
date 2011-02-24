@@ -210,6 +210,82 @@ describe Puppet::Indirector::REST do
     end
   end
 
+  describe "when resolving servers for requests" do
+    before :each do
+      @request = Puppet::Indirector::Request.new(:indirection, :method, :key)
+      @block_return = 'returned from the block'
+    end
+
+    it "should return the request unmodified when not using SRV records" do
+      @request.server = 'puppet.example.com'
+      @request.port   = '90210'
+
+      count = 0
+      rval = @searcher.resolve_servers_for(@request) do |got|
+        count += 1
+        got.server.should == @request.server
+        got.port.should   == @request.port
+        @block_return
+      end
+      count.should == 1
+
+      rval.should == @block_return
+    end
+
+    describe "when SRV returns servers" do
+      before :each do
+        @dns_mock = mock('dns')
+        Resolv::DNS.expects(:new).returns(@dns_mock)
+
+        @port = 7205
+        @host = 'srv.example.com'
+        @srv_records = [Resolv::DNS::Resource::IN::SRV.new(0, 0, @port, @host)]
+
+        Puppet.settings[:use_srv_records] = true
+        @dns_mock.expects(:getresources).
+          with(Puppet.settings[:srv_record], Resolv::DNS::Resource::IN::SRV).
+          returns(@srv_records)
+      end
+
+      it "should return the SRV record when found" do
+        count = 0
+        rval = @searcher.resolve_servers_for(@request) do |got|
+          count += 1
+          got.server.should == 'srv.example.com'
+          got.port.should == 7205
+
+          @block_return
+        end
+        count.should == 1
+
+        rval.should == @block_return
+      end
+
+      it "should fall back to the default server when the block raises a SystemCallError" do
+        count = 0
+        second_pass = nil
+
+        rval = @searcher.resolve_servers_for(@request) do |got|
+          count += 1
+
+          if got.server == 'srv.example.com' then
+            raise SystemCallError, "example failure"
+          else
+            second_pass = got
+          end
+
+          @block_return
+        end
+
+        second_pass.server.should == 'puppet'
+        second_pass.port.should   == 8140
+        count.should == 2
+
+        rval.should == @block_return
+      end
+    end
+  end
+
   describe "when doing a find" do
     before :each do
       @connection = stub('mock http connection', :get => @response)

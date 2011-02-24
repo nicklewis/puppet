@@ -193,26 +193,21 @@ module Puppet
 
     def get_from_source(source_or_content)
       request = Puppet::Indirector::Request.new(:file_content, :find, source_or_content.full_path.sub(/^\//,''))
-      if source_or_content.server? or !Puppet.settings[:use_srv_records]
-        connection = Puppet::Network::HttpPool.http_instance(source_or_content.server, source_or_content.port)
-        yield connection.get(indirection2uri(request), add_accept_encoding({"Accept" => "raw"}))
-        return
-      else
-        Puppet::Network::Resolver.by_srv(Puppet.settings[:srv_record]) do |server, port|
+
+      if Puppet.settings[:use_srv_records] and ! source_or_content.server? then
+        Puppet::Network::Resolver.each_srv_record(Puppet.settings[:srv_record]) do |server, port|
           begin
             connection = Puppet::Network::HttpPool.http_instance(server, port)
-            yield connection.get(indirection2uri(request), add_accept_encoding({"Accept" => "raw"}))
-            return
+            return yield connection.request_get(indirection2uri(request), add_accept_encoding({"Accept" => "raw"}))
           rescue SystemCallError => e
             Puppet.warning "Error connecting to #{server}:#{port}: #{e.message}"
           end
         end
+        Puppet.debug "No more servers left, falling back to #{source_or_content.server}"
       end
-     
-      # Fallback to hostname configured in :server
-      Puppet.debug "No more servers left, falling back to #{source_or_content.server}"
+
       connection = Puppet::Network::HttpPool.http_instance(source_or_content.server, source_or_content.port)
-      yield connection.get(indirection2uri(request), add_accept_encoding({"Accept" => "raw"}))
+      return yield connection.request_get(indirection2uri(request), add_accept_encoding({"Accept" => "raw"}))
     end
 
 
