@@ -13,12 +13,12 @@ describe Puppet::Network::Resolver do
     @test_port         = 1000
 
     # The records we should use.
-    # priority, weight, port, hostname
     @test_records = [
-      Resolv::DNS::Resource::IN::SRV.new(0, 20,  8140, "puppet1.domain.com"),
-      Resolv::DNS::Resource::IN::SRV.new(0, 80,  8140, "puppet2.domain.com"),
-      Resolv::DNS::Resource::IN::SRV.new(1, 1,   8140, "puppet3.domain.com"),
-      Resolv::DNS::Resource::IN::SRV.new(4, 1,   8140, "puppet4.domain.com")
+      #                                  priority,  weight, port, hostname
+      Resolv::DNS::Resource::IN::SRV.new(0,         20,     8140, "puppet1.domain.com"),
+      Resolv::DNS::Resource::IN::SRV.new(0,         80,     8140, "puppet2.domain.com"),
+      Resolv::DNS::Resource::IN::SRV.new(1,         1,      8140, "puppet3.domain.com"),
+      Resolv::DNS::Resource::IN::SRV.new(4,         1,      8140, "puppet4.domain.com")
     ]
 end
 
@@ -29,7 +29,7 @@ end
       # No records returned for a DNS entry without any SRV records
       @dns_mock_object.expects(:getresources).with(@test_a_hostname, @rr_type).returns([])
 
-      Puppet::Network::Resolver.by_srv(@test_a_hostname) do |hostname, port, remaining|
+      Puppet::Network::Resolver.each_srv_record(@test_a_hostname) do |hostname, port, remaining|
         fail_with "host with no records passed block"
       end
     end
@@ -48,7 +48,7 @@ end
 
       @dns_mock_object.expects(:getresources).with(@test_srv_hostname, @rr_type).returns(@test_records)
 
-      Puppet::Network::Resolver.by_srv(@test_srv_hostname) do |hostname, port|
+      Puppet::Network::Resolver.each_srv_record(@test_srv_hostname) do |hostname, port|
         expected_priority = order.keys.min
 
         order[expected_priority].should include(hostname)
@@ -82,14 +82,14 @@ end
         records = []
         count   = 0
         weights.each do |w|
-          # priority, weight, port, server
           count += 1
-          records << Resolv::DNS::Resource::IN::SRV.new(0, w, 1, count.to_s)
+          #                                             priority, weight, port, server
+          records << Resolv::DNS::Resource::IN::SRV.new(0,        w,      1,    count.to_s)
         end
 
         seen  = Hash.new(0)
         total_weight = records.inject(0) { |sum, record|
-          sum + (record.weight == 0 ? 1 : record.weight)
+          sum + Puppet::Network::Resolver.weight(record)
         }
 
         total_weight.times do |n|
@@ -100,7 +100,7 @@ end
 
         seen.length.should == records.length
         records.each do |record|
-          seen[record].should == (record.weight == 0 ? 1 : record.weight)
+          seen[record].should == Puppet::Network::Resolver.weight(record)
         end
       end
     end

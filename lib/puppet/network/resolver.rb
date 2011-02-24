@@ -48,14 +48,18 @@ module Puppet::Network::Resolver
     # current record plus previous records is greater than the random number.
 
     total_weight = records.inject(0) { |sum,record|
-      sum + (record.weight == 0 ? 1 : record.weight)
+      sum + weight(record)
     }
     current_weight = 0
     chosen_weight  = 1 + Kernel.rand(total_weight)
 
     records.each do |record|
-      current_weight += (record.weight == 0 ? 1 : record.weight)
+      current_weight += weight(record)
       return record if current_weight >= chosen_weight
     end
+  end
+
+  def self.weight(record)
+    record.weight == 0 ? 1 : record.weight * 10
   end
 end

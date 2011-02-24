@@ -349,7 +349,7 @@ describe content do
       before(:each) do
         @response = stub_everything 'mock response', :code => "404"
         @conn = stub_everything 'connection'
-        @conn.stubs(:get).returns(@response)
+        @conn.stubs(:request_get).returns(@response)
         Puppet::Network::HttpPool.stubs(:http_instance).returns @conn
 
         @content.stubs(:actual_content).returns(nil)
@@ -369,7 +369,7 @@ describe content do
       end
 
       it "should send the correct indirection uri" do
-        @conn.expects(:get).with { |uri,headers| uri == "/production/file_content/path/to/source" }.returns(@response)
+        @conn.expects(:request_get).with { |uri,headers| uri == "/production/file_content/path/to/source" }.returns(@response)
         @content.write(@fh)
       end
 
