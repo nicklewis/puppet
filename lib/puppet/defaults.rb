@@ -120,7 +120,7 @@ module Puppet
     :catalog_terminus => ["compiler", "Where to get node catalogs.  This is useful to change if, for instance,
       you'd like to pre-compile catalogs and store them in memcached or some other easily-accessed store."],
     :facts_terminus => {
-      :default => Puppet.application_name.to_s == "master" ? 'yaml' : 'facter', 
+      :default => Puppet.application_name.to_s == "master" ? 'yaml' : 'facter',
       :desc => "The node facts terminus.",
       :hook => proc do |value|
         require 'puppet/node/facts'
@@ -204,7 +204,7 @@ module Puppet
     :certname => {:default => fqdn.downcase, :desc => "The name to use when handling certificates.  Defaults
       to the fully qualified domain name.",
       :call_on_define => true, # Call our hook with the default value, so we're always downcased
-      :hook => proc { |value| raise(ArgumentError, "Certificate names must be lower case; see #1168") unless value == value.downcase }},
+      :hook => proc { |value| raise(ArgumentError, "Certificate names must be lower case; see #1168") unless value.to_s == value.to_s.downcase }},
     :certdnsnames => ['', "The DNS names on the Server certificate as a colon-separated list.
       If it's anything other than an empty string, it will be used as an alias in the created
       certificate.  By default, only the server gets an alias set up, and only for 'puppet'."],
