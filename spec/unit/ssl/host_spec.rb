@@ -6,8 +6,8 @@ require 'puppet/ssl/host'
 
 describe Puppet::SSL::Host do
   before do
-    @class = Puppet::SSL::Host
-    @host = @class.new("myname")
+    Puppet::SSL::Host.indirection.terminus_class = :file
+    @host = Puppet::SSL::Host.new("myname")
   end
 
   after do

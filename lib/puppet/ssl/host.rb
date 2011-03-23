@@ -109,23 +109,37 @@ class Puppet::SSL::Host
     configure_indirection(*CA_MODES[@ca_location])
   end
 
-  # Remove all traces of a given host
+  # Puppet::SSL::Host is actually indirected now so the original implementation
+  # has been moved into the ssl_client indirector.  This method is in-use
+  # in `puppet cert -c <certname>`.
   def self.destroy(name)
-    [Key, Certificate, CertificateRequest].collect { |part| part.indirection.destroy(name) }.any? { |x| x }
+    indirection.destroy(name)
   end
 
-  # Search for more than one host, optionally only specifying
-  # an interest in hosts with a given file type.
-  # This just allows our non-indirected class to have one of
-  # indirection methods.
-  def self.search(options = {})
-    classlist = [options[:for] || [Key, CertificateRequest, Certificate]].flatten
-
-    # Collect the results from each class, flatten them, collect all of the names, make the name list unique,
-    # then create a Host instance for each one.
-    classlist.collect { |klass| klass.indirection.search }.flatten.collect { |r| r.name }.uniq.collect do |name|
-      new(name)
+  def self.from_pson(pson)
+    instance = new(pson["name"])
+    if pson["certificate"]
+      instance.certificate = Puppet::SSL::Certificate.from_s(
+        pson["certificate"])
     end
+    if pson["certificate_request"]
+      instance.certificate_request = Puppet::SSL::CertificateRequest.from_s(
+        pson["certificate_request"])
+    end
+    instance.fingerprint = pson["fingerprint"]
+    instance.message = pson["message"]
+    begin
+      instance.state = pson["state"]
+    rescue ArgumentError
+    end
+    instance
+  end
+
+  # Puppet::SSL::Host is actually indirected now so the original implementation
+  # has been moved into the ssl_client indirector.  This method does not
+  # appear to be in use in `puppet cert -l`.
+  def self.search(options = {})
+    indirection.search("*", options)
   end
 
   # Is this a ca host, meaning that all of its files go in the CA location?
@@ -246,6 +260,17 @@ class Puppet::SSL::Host
     @state = value
   end
 
+  def to_pson(*args)
+    {
+      :certificate => certificate,
+      :certificate_request => certificate_request,
+      :fingerprint => fingerprint,
+      :message => message,
+      :name => name,
+      :state => state,
+    }.to_pson(*args)
+  end
+
   # Attempt to retrieve a cert, if we don't already have one.
   def wait_for_cert(time)
     begin
@@ -282,6 +307,7 @@ class Puppet::SSL::Host
       end
     end
   end
+
 end
 
 require 'puppet/ssl/certificate_authority'
