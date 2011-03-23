@@ -1,3 +1,4 @@
+require 'puppet/indirector'
 require 'puppet/ssl'
 require 'puppet/ssl/key'
 require 'puppet/ssl/certificate'
@@ -15,10 +16,18 @@ class Puppet::SSL::Host
   CertificateRequest = Puppet::SSL::CertificateRequest
   CertificateRevocationList = Puppet::SSL::CertificateRevocationList
 
+  extend Puppet::Indirector
+  indirects :ssl_client, :terminus_class => :file
+
   attr_reader :name
   attr_accessor :ca
 
   attr_writer :key, :certificate, :certificate_request
+
+  attr_accessor :fingerprint, :message
+  attr_reader :state
+
+  CERT_STATES = %w{requested signed invoked invalid}
 
   class << self
     include Puppet::Util::Cacher
@@ -46,6 +55,13 @@ class Puppet::SSL::Host
     Certificate.indirection.terminus_class = terminus
     CertificateRequest.indirection.terminus_class = terminus
     CertificateRevocationList.indirection.terminus_class = terminus
+
+    host_map = {:ca => :file, :file => nil, :rest => :rest}
+    if term = host_map[terminus]
+      self.indirection.terminus_class = term
+    else
+      self.indirection.reset_terminus_class
+    end
 
     if cache
       # This is weird; we don't actually cache our keys, we
@@ -85,7 +101,8 @@ class Puppet::SSL::Host
 
   # Specify how we expect to interact with our certificate authority.
   def self.ca_location=(mode)
-    raise ArgumentError, "CA Mode can only be #{CA_MODES.collect { |m| m.to_s }.join(", ")}" unless CA_MODES.include?(mode)
+    modes = CA_MODES.collect { |m, vals| m.to_s }.join(", ")
+    raise ArgumentError, "CA Mode can only be #{modes}" unless CA_MODES.include?(mode)
 
     @ca_location = mode
 
@@ -219,6 +236,14 @@ class Puppet::SSL::Host
       return @ssl_store
     end
     @ssl_store
+  end
+
+  def state=(value)
+    unless CERT_STATES.include?(value)
+      string = CERT_STATES.join(", ")
+      raise ArgumentError, "Invalid certificate state '#{value}'; must be one of #{string}"
+    end
+    @state = value
   end
 
   # Attempt to retrieve a cert, if we don't already have one.

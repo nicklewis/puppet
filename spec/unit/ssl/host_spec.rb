@@ -13,6 +13,7 @@ describe Puppet::SSL::Host do
   after do
     # Cleaned out any cached localhost instance.
     Puppet::Util::Cacher.expire
+    Puppet::SSL::Host.ca_location = :none
   end
 
   it "should use any provided name as its name" do
@@ -140,13 +141,6 @@ describe Puppet::SSL::Host do
   end
 
   describe "when specifying the CA location" do
-    before do
-      [Puppet::SSL::Key, Puppet::SSL::Certificate, Puppet::SSL::CertificateRequest, Puppet::SSL::CertificateRevocationList].each do |klass|
-        klass.indirection.stubs(:terminus_class=)
-        klass.indirection.stubs(:cache_class=)
-      end
-    end
-
     it "should support the location ':local'" do
       lambda { Puppet::SSL::Host.ca_location = :local }.should_not raise_error
     end
@@ -168,80 +162,88 @@ describe Puppet::SSL::Host do
     end
 
     describe "as 'local'" do
-      it "should set the cache class for Certificate, CertificateRevocationList, and CertificateRequest as :file" do
-        Puppet::SSL::Certificate.indirection.expects(:cache_class=).with :file
-        Puppet::SSL::CertificateRequest.indirection.expects(:cache_class=).with :file
-        Puppet::SSL::CertificateRevocationList.indirection.expects(:cache_class=).with :file
-
+      before do
         Puppet::SSL::Host.ca_location = :local
       end
 
-      it "should set the terminus class for Key as :file" do
-        Puppet::SSL::Key.indirection.expects(:terminus_class=).with :file
+      it "should set the cache class for Certificate, CertificateRevocationList, and CertificateRequest as :file" do
+        Puppet::SSL::Certificate.indirection.cache_class.should == :file
+        Puppet::SSL::CertificateRequest.indirection.cache_class.should == :file
+        Puppet::SSL::CertificateRevocationList.indirection.cache_class.should == :file
+      end
 
-        Puppet::SSL::Host.ca_location = :local
+      it "should set the terminus class for Key and Host as :file" do
+        Puppet::SSL::Key.indirection.terminus_class.should == :file
+        Puppet::SSL::Host.indirection.terminus_class.should == :file
       end
 
       it "should set the terminus class for Certificate, CertificateRevocationList, and CertificateRequest as :ca" do
-        Puppet::SSL::Certificate.indirection.expects(:terminus_class=).with :ca
-        Puppet::SSL::CertificateRequest.indirection.expects(:terminus_class=).with :ca
-        Puppet::SSL::CertificateRevocationList.indirection.expects(:terminus_class=).with :ca
-
-        Puppet::SSL::Host.ca_location = :local
+        Puppet::SSL::Certificate.indirection.terminus_class.should == :ca
+        Puppet::SSL::CertificateRequest.indirection.terminus_class.should == :ca
+        Puppet::SSL::CertificateRevocationList.indirection.terminus_class.should == :ca
       end
     end
 
     describe "as 'remote'" do
-      it "should set the cache class for Certificate, CertificateRevocationList, and CertificateRequest as :file" do
-        Puppet::SSL::Certificate.indirection.expects(:cache_class=).with :file
-        Puppet::SSL::CertificateRequest.indirection.expects(:cache_class=).with :file
-        Puppet::SSL::CertificateRevocationList.indirection.expects(:cache_class=).with :file
-
+      before do
         Puppet::SSL::Host.ca_location = :remote
+      end
+
+      it "should set the cache class for Certificate, CertificateRevocationList, and CertificateRequest as :file" do
+        Puppet::SSL::Certificate.indirection.cache_class.should == :file
+        Puppet::SSL::CertificateRequest.indirection.cache_class.should == :file
+        Puppet::SSL::CertificateRevocationList.indirection.cache_class.should == :file
       end
 
       it "should set the terminus class for Key as :file" do
-        Puppet::SSL::Key.indirection.expects(:terminus_class=).with :file
-
-        Puppet::SSL::Host.ca_location = :remote
+        Puppet::SSL::Key.indirection.terminus_class.should == :file
       end
 
-      it "should set the terminus class for Certificate, CertificateRevocationList, and CertificateRequest as :rest" do
-        Puppet::SSL::Certificate.indirection.expects(:terminus_class=).with :rest
-        Puppet::SSL::CertificateRequest.indirection.expects(:terminus_class=).with :rest
-        Puppet::SSL::CertificateRevocationList.indirection.expects(:terminus_class=).with :rest
-
-        Puppet::SSL::Host.ca_location = :remote
+      it "should set the terminus class for Host, Certificate, CertificateRevocationList, and CertificateRequest as :rest" do
+        Puppet::SSL::Host.indirection.terminus_class.should == :rest
+        Puppet::SSL::Certificate.indirection.terminus_class.should == :rest
+        Puppet::SSL::CertificateRequest.indirection.terminus_class.should == :rest
+        Puppet::SSL::CertificateRevocationList.indirection.terminus_class.should == :rest
       end
     end
 
     describe "as 'only'" do
-      it "should set the terminus class for Key, Certificate, CertificateRevocationList, and CertificateRequest as :ca" do
-        Puppet::SSL::Key.indirection.expects(:terminus_class=).with :ca
-        Puppet::SSL::Certificate.indirection.expects(:terminus_class=).with :ca
-        Puppet::SSL::CertificateRequest.indirection.expects(:terminus_class=).with :ca
-        Puppet::SSL::CertificateRevocationList.indirection.expects(:terminus_class=).with :ca
-
+      before do
         Puppet::SSL::Host.ca_location = :only
       end
 
-      it "should reset the cache class for Certificate, CertificateRevocationList, and CertificateRequest to nil" do
-        Puppet::SSL::Certificate.indirection.expects(:cache_class=).with nil
-        Puppet::SSL::CertificateRequest.indirection.expects(:cache_class=).with nil
-        Puppet::SSL::CertificateRevocationList.indirection.expects(:cache_class=).with nil
+      it "should set the terminus class for Key, Certificate, CertificateRevocationList, and CertificateRequest as :ca" do
+        Puppet::SSL::Key.indirection.terminus_class.should == :ca
+        Puppet::SSL::Certificate.indirection.terminus_class.should == :ca
+        Puppet::SSL::CertificateRequest.indirection.terminus_class.should == :ca
+        Puppet::SSL::CertificateRevocationList.indirection.terminus_class.should == :ca
+      end
 
-        Puppet::SSL::Host.ca_location = :only
+      it "should set the cache class for Certificate, CertificateRevocationList, and CertificateRequest to nil" do
+        Puppet::SSL::Certificate.indirection.cache_class.should be_nil
+        Puppet::SSL::CertificateRequest.indirection.cache_class.should be_nil
+        Puppet::SSL::CertificateRevocationList.indirection.cache_class.should be_nil
+      end
+
+      it "should set the terminus class for Host to :file" do
+        Puppet::SSL::Host.indirection.terminus_class.should == :file
       end
     end
 
     describe "as 'none'" do
-      it "should set the terminus class for Key, Certificate, CertificateRevocationList, and CertificateRequest as :file" do
-        Puppet::SSL::Key.indirection.expects(:terminus_class=).with :file
-        Puppet::SSL::Certificate.indirection.expects(:terminus_class=).with :file
-        Puppet::SSL::CertificateRequest.indirection.expects(:terminus_class=).with :file
-        Puppet::SSL::CertificateRevocationList.indirection.expects(:terminus_class=).with :file
-
+      before do
         Puppet::SSL::Host.ca_location = :none
+      end
+
+      it "should set the terminus class for Key, Certificate, CertificateRevocationList, and CertificateRequest as :file" do
+        Puppet::SSL::Key.indirection.terminus_class.should == :file
+        Puppet::SSL::Certificate.indirection.terminus_class.should == :file
+        Puppet::SSL::CertificateRequest.indirection.terminus_class.should == :file
+        Puppet::SSL::CertificateRevocationList.indirection.terminus_class.should == :file
+      end
+
+      it "should set the terminus class for Host to 'none'" do
+        lambda { Puppet::SSL::Host.indirection.terminus_class }.should raise_error(Puppet::DevError)
       end
     end
   end
@@ -709,4 +711,42 @@ describe Puppet::SSL::Host do
       @host.wait_for_cert(1)
     end
   end
+
+  describe "when managing certificate status" do
+    before do
+      @status = Puppet::SSL::Host.new("mysigner")
+      Puppet::SSL::CertificateAuthority.stubs(:ca?).returns true
+    end
+
+    it "should have a name" do
+      @status.name.should == "mysigner"
+    end
+
+    it "should accept a 'fingerprint' attribute" do
+      @status.fingerprint = "something"
+      @status.fingerprint.should == "something"
+    end
+
+    it "should accept a 'message' attribute" do
+      @status.message = "something"
+      @status.message.should == "something"
+    end
+
+    it "should accept a 'state' attribute" do
+      @status.state = "invalid"
+      @status.state.should == "invalid"
+    end
+
+    it "should fail unless the state is a valid listed state" do
+      lambda { @status.state = "bad" }.should raise_error(ArgumentError, /certificate state/)
+    end
+
+    %w{requested signed invoked invalid}.each do |state|
+      it "should accept '#{state}' as a valid state" do
+        @status.state = state
+        @status.state.should == state
+      end
+    end
+  end
+
 end
