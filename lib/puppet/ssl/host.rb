@@ -17,7 +17,7 @@ class Puppet::SSL::Host
   CertificateRevocationList = Puppet::SSL::CertificateRevocationList
 
   extend Puppet::Indirector
-  indirects :ssl_client, :terminus_class => :file
+  indirects :certificate_status, :terminus_class => :file
 
   attr_reader :name
   attr_accessor :ca
@@ -110,7 +110,7 @@ class Puppet::SSL::Host
   end
 
   # Puppet::SSL::Host is actually indirected now so the original implementation
-  # has been moved into the ssl_client indirector.  This method is in-use
+  # has been moved into the certificate_status indirector.  This method is in-use
   # in `puppet cert -c <certname>`.
   def self.destroy(name)
     indirection.destroy(name)
@@ -136,7 +136,7 @@ class Puppet::SSL::Host
   end
 
   # Puppet::SSL::Host is actually indirected now so the original implementation
-  # has been moved into the ssl_client indirector.  This method does not
+  # has been moved into the certificate_status indirector.  This method does not
   # appear to be in use in `puppet cert -l`.
   def self.search(options = {})
     indirection.search("*", options)

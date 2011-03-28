@@ -2,10 +2,10 @@
 
 require File.expand_path(File.dirname(__FILE__) + '/../../../spec_helper.rb')
 require 'puppet/ssl/host'
-require 'puppet/indirector/ssl_client'
+require 'puppet/indirector/certificate_status'
 require 'tempfile'
 
-describe "Puppet::Indirector::SslClient::File" do
+describe "Puppet::Indirector::CertificateStatus::File" do
   before do
     Puppet::SSL::CertificateAuthority.stubs(:ca?).returns true
     @terminus = Puppet::SSL::Host.indirection.terminus(:file)
@@ -19,7 +19,7 @@ describe "Puppet::Indirector::SslClient::File" do
   end
 
   it "should be a terminus on SSL::Host" do
-    @terminus.should be_instance_of(Puppet::Indirector::SslClient::File)
+    @terminus.should be_instance_of(Puppet::Indirector::CertificateStatus::File)
   end
 
   it "should create a CA instance if none is present" do
@@ -34,13 +34,13 @@ describe "Puppet::Indirector::SslClient::File" do
   end
 
   it "should be indirected with the name 'certificate_status'" do
-    Puppet::SSL::Host.indirection.name.should == :ssl_client
+    Puppet::SSL::Host.indirection.name.should == :certificate_status
   end
 
   describe "when saving" do
     before do
       @host = Puppet::SSL::Host.new("mysigner")
-      @request = Puppet::Indirector::Request.new(:ssl_client, :save, "mysigner", @host)
+      @request = Puppet::Indirector::Request.new(:certificate_status, :save, "mysigner", @host)
 
       Puppet.settings.use(:main)
     end
