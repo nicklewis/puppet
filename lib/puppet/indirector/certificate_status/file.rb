@@ -60,4 +60,14 @@ class Puppet::Indirector::CertificateStatus::File < Puppet::Indirector::Code
     end.uniq.collect &Puppet::SSL::Host.method(:new)
   end
 
+  def find(request)
+
+    result = Puppet::SSL::Host.new(request.key)
+    if result.certificate_request || result.certificate
+      result
+    else
+      nil
+    end
+
+  end
 end
