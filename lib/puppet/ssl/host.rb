@@ -271,23 +271,20 @@ class Puppet::SSL::Host
       pson_hash[:fingerprint] = certificate_request.fingerprint
       pson_hash[:state] = 'requested'
     else
-      if public_key = Puppet::SSL::Certificate.indirection.find(name)
-       invalid = false
-       begin
-         certificate_authority = Puppet::SSL::CertificateAuthority.instance
-         certificate_authority.verify(public_key)
-       rescue Puppet::SSL::CertificateAuthority::CertificateVerificationError => details
-         invalid = details.to_s
-       end
+      invalid = false
+      begin
+        certificate_authority = Puppet::SSL::CertificateAuthority.instance
+        certificate_authority.verify(self)
+      rescue Puppet::SSL::CertificateAuthority::CertificateVerificationError => details
+        invalid = details.to_s
+      end
 
-       if invalid
-         pson_hash[:state] = (invalid =~ /revoked/ ? 'revoked' : 'invalid')
-         pson_hash[:verification_message] = invalid
-         pson_hash[:fingerprint] = public_key.fingerprint
-         pson_hash[:state] = 'signed'
-       end
-      else
-        # Shouldn't have gotten here, since the host doesn't exist!
+      if invalid
+        pson_hash[:state] = (invalid =~ /revoked/ ? 'revoked' : 'invalid')
+        pson_hash[:verification_message] = invalid
+      elsif public_key = Puppet::SSL::Certificate.indirection.find(name)
+        pson_hash[:fingerprint] = public_key.fingerprint
+        pson_hash[:state] = 'signed'
       end
     end
 
