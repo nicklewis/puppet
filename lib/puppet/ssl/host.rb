@@ -186,12 +186,12 @@ class Puppet::SSL::Host
 
   def certificate
     unless @certificate
+      generate_key unless key
+
       # get the CA cert first, since it's required for the normal cert
       # to be of any use.
       return nil unless Certificate.indirection.find("ca") unless ca?
       return nil unless @certificate = Certificate.indirection.find(name)
-
-      generate_key unless key
 
       unless certificate_matches_key?
         raise Puppet::Error, "Retrieved certificate does not match private key; please remove certificate from server and regenerate it with the current key"
