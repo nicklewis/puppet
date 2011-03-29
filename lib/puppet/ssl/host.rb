@@ -262,9 +262,8 @@ class Puppet::SSL::Host
 
   def to_pson(*args)
     pson_hash = {
-      :name    => name,
-      :message => '',
-      :state   => 'invalid'
+      :name  => name,
+      :state => 'invalid'
     }
 
     if certificate_request
@@ -284,7 +283,7 @@ class Puppet::SSL::Host
       if invalid
         pson_hash[:state] = (invalid =~ /revoked/ ? 'revoked' : 'invalid')
         pson_hash[:verification_message] = invalid
-      elsif public_key = Puppet::SSL::Certificate.indirection.find(name)
+      else
         pson_hash[:fingerprint] = public_key.fingerprint
         pson_hash[:state] = 'signed'
       end
