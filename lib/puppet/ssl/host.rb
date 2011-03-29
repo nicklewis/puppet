@@ -272,9 +272,11 @@ class Puppet::SSL::Host
       pson_hash[:state] = 'requested'
     else
       invalid = false
+      public_key = Puppet::SSL::Certificate.indirection.find(name)
+
       begin
-        certificate_authority = Puppet::SSL::CertificateAuthority.instance
-        certificate_authority.verify(self)
+        certificate_authority = Puppet::SSL::CertificateAuthority.new
+        certificate_authority.verify(public_key)
       rescue Puppet::SSL::CertificateAuthority::CertificateVerificationError => details
         invalid = details.to_s
       end
