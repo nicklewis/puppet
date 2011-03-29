@@ -61,13 +61,13 @@ class Puppet::Indirector::CertificateStatus::File < Puppet::Indirector::Code
   end
 
   def find(request)
+    ssl_host = Puppet::SSL::Host.new(request.key)
+    public_key = Puppet::SSL::Certificate.indirection.find(request.key)
 
-    result = Puppet::SSL::Host.new(request.key)
-    if result.certificate_request || result.certificate
-      result
+    if ssl_host.certificate_request || public_key
+      ssl_host
     else
       nil
     end
-
   end
 end

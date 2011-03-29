@@ -261,14 +261,19 @@ class Puppet::SSL::Host
   end
 
   def to_pson(*args)
-    {
-      :certificate => certificate,
-      :certificate_request => certificate_request,
-      :fingerprint => fingerprint,
-      :message => message,
-      :name => name,
-      :state => state,
-    }.to_pson(*args)
+    pson_hash = {:name => name, :message => ''}
+
+    if certificate_request
+      pson_hash[:fingerprint] = certificate_request.fingerprint
+      pson_hash[:state] = 'requested'
+    elsif public_key = Puppet::SSL::Certificate.indirection.find(name)
+      pson_hash[:fingerprint] = public_key.fingerprint
+      pson_hash[:state] = 'signed'
+    else
+      pson_hash[:state] = 'invalid'
+    end
+
+    pson_hash.to_pson(*args)
   end
 
   # Attempt to retrieve a cert, if we don't already have one.
