@@ -267,22 +267,25 @@ class Puppet::SSL::Host
       :state   => 'invalid'
     }
 
-    invalid = false
-    begin
-      ca.verify(self)
-    rescue Puppet::SSL::CertificateAuthority::CertificateVerificationError => details
-      invalid = details.to_s
-    end
-
     if certificate_request
       pson_hash[:fingerprint] = certificate_request.fingerprint
       pson_hash[:state] = 'requested'
-    elsif public_key = Puppet::SSL::Certificate.indirection.find(name)
-      pson_hash[:fingerprint] = public_key.fingerprint
-      pson_hash[:state] = 'signed'
-    elsif invalid
-      pson_hash[:state] = (invalid =~ /revoked/ ? 'revoked' : 'invalid')
-      pson_hash[:verification_message] = invalid
+    else
+      invalid = false
+      begin
+        certificate_authority = Puppet::SSL::CertificateAuthority.instance
+        certificate_authority.verify(self)
+      rescue Puppet::SSL::CertificateAuthority::CertificateVerificationError => details
+        invalid = details.to_s
+      end
+
+      if invalid
+        pson_hash[:state] = (invalid =~ /revoked/ ? 'revoked' : 'invalid')
+        pson_hash[:verification_message] = invalid
+      elsif public_key = Puppet::SSL::Certificate.indirection.find(name)
+        pson_hash[:fingerprint] = public_key.fingerprint
+        pson_hash[:state] = 'signed'
+      end
     end
 
     pson_hash.to_pson(*args)
