@@ -283,6 +283,7 @@ class Puppet::SSL::Host
       if invalid
         pson_hash[:state] = (invalid =~ /revoked/ ? 'revoked' : 'invalid')
         pson_hash[:verification_message] = invalid
+        pson_hash[:fingerprint] = public_key.fingerprint
       else
         pson_hash[:fingerprint] = public_key.fingerprint
         pson_hash[:state] = 'signed'
