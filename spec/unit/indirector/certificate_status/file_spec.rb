@@ -6,16 +6,15 @@ require 'puppet/indirector/certificate_status'
 require 'tempfile'
 
 describe "Puppet::Indirector::CertificateStatus::File" do
+  include PuppetSpec::Files
+
   before do
     Puppet::SSL::CertificateAuthority.stubs(:ca?).returns true
     @terminus = Puppet::SSL::Host.indirection.terminus(:file)
 
-    @tmpdir = Tempfile.new("certificate_status_ca_testing")
-    @tmpdir.close
-    File.unlink(@tmpdir.path)
-    Dir.mkdir(@tmpdir.path)
-    Puppet[:confdir] = @tmpdir.path
-    Puppet[:vardir] = @tmpdir.path
+    @tmpdir = tmpdir("certificate_status_ca_testing")
+    Puppet[:confdir] = @tmpdir
+    Puppet[:vardir] = @tmpdir
 
     # localcacert is where each client stores the CA certificate
     # cacert is where the master stores the CA certificate
@@ -61,7 +60,7 @@ describe "Puppet::Indirector::CertificateStatus::File" do
   describe "when creating the CA" do
     it "should fail if it is not a valid CA" do
       Puppet::SSL::CertificateAuthority.expects(:ca?).returns false
-      lambda { @terminus.ca }.should raise_error(ArgumentError)
+      lambda { @terminus.ca }.should raise_error(ArgumentError, "This process is not configured as a certificate authority")
     end
   end
 
@@ -158,12 +157,12 @@ describe "Puppet::Indirector::CertificateStatus::File" do
       signed_host = Puppet::SSL::Host.new("clean_signed_cert")
       generate_signed_cert(signed_host)
       signed_request = Puppet::Indirector::Request.new(:certificate_status, :delete, "clean_signed_cert", signed_host)
-      @terminus.destroy(signed_request).should == "Puppet::SSL::Certificate for host clean_signed_cert was deleted, Puppet::SSL::Key for host clean_signed_cert was deleted"
+      @terminus.destroy(signed_request).should == "Deleted for host clean_signed_cert: Puppet::SSL::Certificate, Puppet::SSL::Key"
 
       requested_host = Puppet::SSL::Host.new("clean_csr")
       generate_csr(requested_host)
       csr_request = Puppet::Indirector::Request.new(:certificate_status, :delete, "clean_csr", requested_host)
-      @terminus.destroy(csr_request).should == "Puppet::SSL::CertificateRequest for host clean_csr was deleted, Puppet::SSL::Key for host clean_csr was deleted"
+      @terminus.destroy(csr_request).should == "Deleted for host clean_signed_cert: Puppet::SSL::CertificateRequest, Puppet::SSL::Key"
     end
   end
 
@@ -186,5 +185,4 @@ describe "Puppet::Indirector::CertificateStatus::File" do
       results.should == [["ca","signed"],["requested_host","requested"],["revoked_host","revoked"],["signed_host","signed"]]
     end
   end
-
 end

@@ -20,12 +20,12 @@ class Puppet::Indirector::CertificateStatus::File < Puppet::Indirector::Code
       Puppet::SSL::Key,
     ].collect do |part|
       if part.indirection.destroy(request.key)
-        deleted << "#{part} for host #{request.key} was deleted"
+        deleted << "#{part}"
       end
     end
 
     return "Nothing was deleted" if deleted.empty?
-    deleted.join(", ")
+    "Deleted for '#{request.key}': #{deleted.join(", ")}"
   end
 
   def save(request)

@@ -100,7 +100,7 @@ class Puppet::SSL::Host
   # Specify how we expect to interact with our certificate authority.
   def self.ca_location=(mode)
     modes = CA_MODES.collect { |m, vals| m.to_s }.join(", ")
-    raise ArgumentError, "CA Mode can only be #{modes}" unless CA_MODES.include?(mode)
+    raise ArgumentError, "CA Mode can only be one of: #{modes}" unless CA_MODES.include?(mode)
 
     @ca_location = mode
 
@@ -302,11 +302,11 @@ class Puppet::SSL::Host
     begin
       Puppet::SSL::CertificateAuthority.new.verify(my_cert)
       return 'signed'
-    rescue Puppet::SSL::CertificateAuthority::CertificateVerificationError => details
+    # Couldn't this also mean that it's invalid?
+    rescue Puppet::SSL::CertificateAuthority::CertificateVerificationError
       return 'revoked'
     end
   end
-
 end
 
 require 'puppet/ssl/certificate_authority'
