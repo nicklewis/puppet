@@ -13,10 +13,10 @@ class Puppet::Node::Facts
   extend Puppet::Indirector
   extend Puppet::Util::Pson
 
-  # We want to expire any cached nodes if the facts are saved.
+  # We want to try to remove any cached nodes if the facts are saved.
   module NodeExpirer
     def save(instance, key = nil)
-      Puppet::Node.indirection.expire(instance.name)
+      Puppet::Node.indirection.destroy(instance.name) rescue nil
       super
     end
   end

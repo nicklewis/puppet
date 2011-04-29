@@ -13,18 +13,19 @@ module Puppet::Indirector
   require 'puppet/network/format_handler'
 
   def self.configure_routes(application_routes)
-    application_routes.each do |indirection_name, termini|
+    application_routes.each do |indirection_name, terminuses|
       indirection_name = indirection_name.to_sym
-      terminus_name = termini["terminus"]
-      cache_name    = termini["cache"]
-
-      Puppet::Indirector::Terminus.terminus_class(indirection_name, terminus_name || cache_name)
 
       indirection = Puppet::Indirector::Indirection.instance(indirection_name)
       raise "Indirection #{indirection_name} does not exist" unless indirection
 
-      indirection.terminus_class = terminus_name if terminus_name
-      indirection.cache_class = cache_name if cache_name
+      # Load the terminus classes
+      Puppet::Indirector::Terminus.terminus_classes(indirection_name)
+
+      terminuses.each do |method, method_terminuses|
+        method_terminuses = method_terminuses.split(',').map(&:strip) if method_terminuses.is_a? String
+        indirection.terminuses[method.to_sym] = method_terminuses.map{|t| indirection.make_terminus(t)}
+      end
     end
   end
 

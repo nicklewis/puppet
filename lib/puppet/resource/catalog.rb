@@ -4,6 +4,7 @@ require 'puppet/simple_graph'
 require 'puppet/transaction'
 
 require 'puppet/util/pson'
+require 'puppet/util/storage'
 
 require 'puppet/util/tagging'
 

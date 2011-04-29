@@ -81,19 +81,24 @@ class Puppet::Configurer
 
   # Get the remote catalog, yo.  Returns nil if no catalog can be found.
   def retrieve_catalog(fact_options)
-    fact_options ||= {}
-    # First try it with no cache, then with the cache.
-    unless (Puppet[:use_cached_catalog] and result = retrieve_catalog_from_cache(fact_options)) or result = retrieve_new_catalog(fact_options)
-      if ! Puppet[:usecacheonfailure]
-        Puppet.warning "Not using cache on failed catalog"
-        return nil
+    catalog = begin
+      result = nil
+      @duration = thinmark do
+        result = Puppet::Resource::Catalog.indirection.find(Puppet[:node_name_value], fact_options)
+        Puppet::Resource::Catalog.indirection.save(result, Puppet[:node_name_value]) if result
       end
-      result = retrieve_catalog_from_cache(fact_options)
+      result
+    rescue SystemExit,NoMemoryError
+      raise
+    rescue => detail
+      puts detail.backtrace if Puppet[:trace]
+      Puppet.err "Could not retrieve catalog: #{detail}"
+      nil
     end
 
-    return nil unless result
+    return nil unless catalog
 
-    convert_catalog(result, @duration)
+    convert_catalog(catalog, @duration)
   end
 
   # Convert a plain resource catalog into our full host catalog.
@@ -135,7 +140,7 @@ class Puppet::Configurer
     begin
       prepare(options)
 
-      if Puppet::Resource::Catalog.indirection.terminus_class == :rest
+      if Puppet::Resource::Catalog.indirection.primary_terminuses_for(:find).include?(:rest)
         # This is a bit complicated.  We need the serialized and escaped facts,
         # and we need to know which format they're encoded in.  Thus, we
         # get a hash with both of these pieces of information.
@@ -215,32 +220,5 @@ class Puppet::Configurer
       Puppet.err "Could not run command from #{setting}: #{detail}"
       false
     end
-  end
-
-  def retrieve_catalog_from_cache(fact_options)
-    result = nil
-    @duration = thinmark do
-      result = Puppet::Resource::Catalog.indirection.find(Puppet[:node_name_value], fact_options.merge(:ignore_terminus => true))
-    end
-    Puppet.notice "Using cached catalog"
-    result
-  rescue => detail
-    puts detail.backtrace if Puppet[:trace]
-    Puppet.err "Could not retrieve catalog from cache: #{detail}"
-    return nil
-  end
-
-  def retrieve_new_catalog(fact_options)
-    result = nil
-    @duration = thinmark do
-      result = Puppet::Resource::Catalog.indirection.find(Puppet[:node_name_value], fact_options.merge(:ignore_cache => true))
-    end
-    result
-  rescue SystemExit,NoMemoryError
-    raise
-  rescue Exception => detail
-    puts detail.backtrace if Puppet[:trace]
-    Puppet.err "Could not retrieve catalog from remote server: #{detail}"
-    return nil
   end
 end

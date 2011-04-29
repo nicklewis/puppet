@@ -54,7 +54,7 @@ class Puppet::SSL::Host
     if term = host_map[terminus]
       self.indirection.terminus_class = term
     else
-      self.indirection.reset_terminus_class
+      self.indirection.reset_default_terminuses
     end
 
     if cache

@@ -33,7 +33,7 @@ class Puppet::Resource::Catalog::Compiler < Puppet::Indirector::Code
     node = node_from_request(request)
 
     if catalog = compile(node)
-      return catalog
+      return filter(catalog)
     else
       # This shouldn't actually happen; we should either return
       # a config or raise an exception.

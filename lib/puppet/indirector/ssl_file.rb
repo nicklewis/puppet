@@ -90,6 +90,7 @@ class Puppet::Indirector::SslFile < Puppet::Indirector::Terminus
   # Save our file to disk.
   def save(request)
     path = path(request.key)
+    Puppet.crit "Saving #{request.key} to #{path}"
     dir = File.dirname(path)
 
     raise Puppet::Error.new("Cannot save #{request.key}; parent directory #{dir} does not exist") unless FileTest.directory?(dir)

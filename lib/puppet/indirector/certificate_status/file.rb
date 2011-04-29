@@ -1,5 +1,6 @@
 require 'puppet'
 require 'puppet/indirector/certificate_status'
+require 'puppet/indirector/code'
 require 'puppet/ssl/certificate'
 require 'puppet/ssl/certificate_authority'
 require 'puppet/ssl/certificate_request'

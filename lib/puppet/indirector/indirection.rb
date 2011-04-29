@@ -8,68 +8,31 @@ require 'puppet/indirector/request'
 class Puppet::Indirector::Indirection
   include Puppet::Util::Docs
 
-  @@indirections = []
+  @@indirections = {}
 
   # Find an indirection by name.  This is provided so that Terminus classes
   # can specifically hook up with the indirections they are associated with.
   def self.instance(name)
-    @@indirections.find { |i| i.name == name }
+    @@indirections[name]
   end
 
   # Return a list of all known indirections.  Used to generate the
   # reference.
   def self.instances
-    @@indirections.collect { |i| i.name }
+    @@indirections.keys
   end
 
   # Find an indirected model by name.  This is provided so that Terminus classes
   # can specifically hook up with the indirections they are associated with.
   def self.model(name)
-    return nil unless match = @@indirections.find { |i| i.name == name }
-    match.model
+    match.model if match = instance(name)
   end
 
   attr_accessor :name, :model
 
-  attr_reader :termini
-
-  # Create and return our cache terminus.
-  def cache
-    raise(Puppet::DevError, "Tried to cache when no cache class was set") unless cache_class
-    terminus(cache_class)
-  end
-
-  # Should we use a cache?
-  def cache?
-    cache_class ? true : false
-  end
-
-  attr_reader :cache_class
-  # Define a terminus class to be used for caching.
-  def cache_class=(class_name)
-    validate_terminus_class(class_name) if class_name
-    @cache_class = class_name
-  end
-
   # This is only used for testing.
   def delete
-    @@indirections.delete(self) if @@indirections.include?(self)
-  end
-
-  # Set the time-to-live for instances created through this indirection.
-  def ttl=(value)
-    raise ArgumentError, "Indirection TTL must be an integer" unless value.is_a?(Fixnum)
-    @ttl = value
-  end
-
-  # Default to the runinterval for the ttl.
-  def ttl
-    @ttl ||= Puppet[:runinterval].to_i
-  end
-
-  # Calculate the expiration date for a returned instance.
-  def expiration
-    Time.now + ttl
+    @@indirections.delete(self.name)
   end
 
   # Generate the full doc string.
@@ -78,75 +41,93 @@ class Puppet::Indirector::Indirection
 
     text += scrub(@doc) + "\n\n" if @doc
 
-    if s = terminus_setting
-      text += "* **Terminus Setting**: #{terminus_setting}"
-    end
-
     text
   end
+
+  attr_reader :terminuses
 
   def initialize(model, name, options = {})
     @model = model
     @name = name
-    @termini = {}
+    @terminuses = {}
 
-    @cache_class = nil
-    @terminus_class = nil
+    raise(ArgumentError, "Indirection #{@name} is already defined") if @@indirections[@name]
+    @@indirections[@name] = self
 
-    raise(ArgumentError, "Indirection #{@name} is already defined") if @@indirections.find { |i| i.name == @name }
-    @@indirections << self
-
-    if mod = options[:extend]
+    if mod = options.delete(:extend)
       extend(mod)
-      options.delete(:extend)
     end
 
-    # This is currently only used for cache_class and terminus_class.
-    options.each do |name, value|
-      begin
-        send(name.to_s + "=", value)
-      rescue NoMethodError
-        raise ArgumentError, "#{name} is not a valid Indirection parameter"
-      end
+    if terminus_class = options.delete(:terminus_class)
+      self.terminus_class = terminus_class
+    end
+
+    @terminus_setting = options.delete(:terminus_setting)
+  end
+
+  def primary_terminuses_for(method)
+    terminuses = @terminuses[method] || default_terminuses_for(method)
+
+    raise "No '#{method}' terminus specified for indirection #{name}" if terminuses.empty?
+
+    terminuses
+  end
+
+  def default_terminuses_for(method)
+    # Yay!
+    case method
+    when :head, :find, :destroy
+      [default_cache, default_terminus]
+    when :save
+      [default_terminus, default_cache]
+    when :search
+      [default_terminus]
+    end.compact
+  end
+
+  # This is for backward compatibility with terminus_setting
+  def default_terminus
+    return @default_terminus if @default_terminus
+    self.terminus_class = Puppet[@terminus_setting] if @terminus_setting
+    @default_terminus
+  end
+
+  def default_cache
+    @default_cache
+  end
+
+  # These are really for backward compatibility, so we don't have to immediately
+  # start specifying *every* route explicitly
+  def terminus_class=(terminus_class)
+    if terminus_class
+      validate_terminus_class(terminus_class)
+      @default_terminus = make_terminus(terminus_class)
+    else
+      @default_terminus = nil
     end
   end
 
-  # Set up our request object.
-  def request(*args)
-    Puppet::Indirector::Request.new(self.name, *args)
-  end
-
-  # Return the singleton terminus for this indirection.
-  def terminus(terminus_name = nil)
-    # Get the name of the terminus.
-    raise Puppet::DevError, "No terminus specified for #{self.name}; cannot redirect" unless terminus_name ||= terminus_class
-
-    termini[terminus_name] ||= make_terminus(terminus_name)
-  end
-
-  # This can be used to select the terminus class.
-  attr_accessor :terminus_setting
-
-  # Determine the terminus class.
-  def terminus_class
-    unless @terminus_class
-      if setting = self.terminus_setting
-        self.terminus_class = Puppet.settings[setting].to_sym
-      else
-        raise Puppet::DevError, "No terminus class nor terminus setting was provided for indirection #{self.name}"
-      end
+  def cache_class=(terminus_class)
+    if terminus_class
+      validate_terminus_class(terminus_class)
+      @default_cache = make_terminus(terminus_class)
+    else
+      @default_cache = nil
     end
-    @terminus_class
   end
 
-  def reset_terminus_class
-    @terminus_class = nil
+  def reset_all_terminuses
+    reset_terminuses
+    reset_default_terminuses
   end
 
-  # Specify the terminus class to use.
-  def terminus_class=(klass)
-    validate_terminus_class(klass)
-    @terminus_class = klass
+  def reset_terminuses
+    @terminuses = {}
+  end
+
+  def reset_default_terminuses
+    @default_terminus = nil
+    @default_cache    = nil
   end
 
   # This is used by terminus_class= and cache=.
@@ -157,153 +138,108 @@ class Puppet::Indirector::Indirection
     end
   end
 
-  # Expire a cached object, if one is cached.  Note that we don't actually
-  # remove it, we expire it and write it back out to disk.  This way people
-  # can still use the expired object if they want.
-  def expire(key, *args)
-    request = request(:expire, key, *args)
+  #def method_missing(method, *args)
+  #  method = method.to_s
+  #  if type = [/^find_from_/, /^save_to_/, /^search_thru_/, /^destroy_from_/, /^head_from_/].find {|r| method =~ r}
+  #    name = type.chomp('_')
+  #    terminuses = (method - name).split('_').map(&:to_sym)
+  #    send(method_name, *args)
+  #  else
+  #    super
+  #  end
+  #end
 
-    return nil unless cache?
+  def find_from(terminuses, key, *args)
+    request = Puppet::Indirector::Request.new(name, :find, key, *args)
+    fail_unless_authorized(request, terminuses)
 
-    return nil unless instance = cache.find(request(:find, key, *args))
+    Puppet.debug "Finding #{model.name} from #{terminuses.map(&:name).map(&:to_s).inspect}"
 
-    Puppet.info "Expiring the #{self.name} cache of #{instance.name}"
-
-    # Set an expiration date in the past
-    instance.expiration = Time.now - 60
-
-    cache.save(request(:save, instance, *args))
-  end
-
-  # Search for an instance in the appropriate terminus, caching the
-  # results if caching is configured..
-  def find(key, *args)
-    request = request(:find, key, *args)
-    terminus = prepare(request)
-
-    if result = find_in_cache(request)
-      return result
-    end
-
-    # Otherwise, return the result from the terminus, caching if appropriate.
-    if ! request.ignore_terminus? and result = terminus.find(request)
-      result.expiration ||= self.expiration if result.respond_to?(:expiration)
-      if cache? and request.use_cache?
-        Puppet.info "Caching #{self.name} for #{request.key}"
-        cache.save request(:save, result, *args)
+    result = nil
+    error = nil
+    terminuses.each do |terminus|
+      begin
+        if result = terminus.find(request)
+          return result
+        end
+        error = nil
+      rescue => e
+        error = e
       end
-
-      return terminus.respond_to?(:filter) ? terminus.filter(result) : result
     end
+
+    # If we get here, we found nothing. Maybe something bad happened.
+    raise error if error
 
     nil
   end
 
-  # Search for an instance in the appropriate terminus, and return a
-  # boolean indicating whether the instance was found.
-  def head(key, *args)
-    request = request(:head, key, *args)
-    terminus = prepare(request)
-
-    # Look in the cache first, then in the terminus.  Force the result
-    # to be a boolean.
-    !!(find_in_cache(request) || terminus.head(request))
+  # Search for an instance in the appropriate terminus, saving the results.
+  def find(key, *args)
+    find_from(primary_terminuses_for(:find), key, *args)
   end
 
-  def find_in_cache(request)
-    # See if our instance is in the cache and up to date.
-    return nil unless cache? and ! request.ignore_cache? and cached = cache.find(request)
-    if cached.expired?
-      Puppet.info "Not using expired #{self.name} for #{request.key} from cache; expired at #{cached.expiration}"
-      return nil
-    end
+  def head_from(terminuses, key, *args)
+    request = Puppet::Indirector::Request.new(name, :head, key, *args)
+    fail_unless_authorized(request, terminuses)
 
-    Puppet.debug "Using cached #{self.name} for #{request.key}"
-    cached
-  rescue => detail
-    puts detail.backtrace if Puppet[:trace]
-    Puppet.err "Cached #{self.name} for #{request.key} failed: #{detail}"
+    terminuses.any? { |terminus| terminus.head(request) }
+  end
+
+  # This attempts a head request against every terminus, and returns true if
+  # any one of them returns true.
+  def head(key, *args)
+    head_from(primary_terminuses_for(:find), key, *args)
+  end
+
+  def destroy_from(terminuses, key, *args)
+    request = Puppet::Indirector::Request.new(name, :destroy, key, *args)
+    fail_unless_authorized(request, terminuses)
+
+    terminuses.each { |t| t.destroy(request) rescue nil }
     nil
   end
 
   # Remove something via the terminus.
+  # Destroy presently destroys from all the save terminuses (essentially these
+  # are defined as terminuses over the data of which we have authority).
   def destroy(key, *args)
-    request = request(:destroy, key, *args)
-    terminus = prepare(request)
+    destroy_from(primary_terminuses_for(:save), key, *args)
+  end
 
-    result = terminus.destroy(request)
+  def search_thru(terminuses, key, *args)
+    request = Puppet::Indirector::Request.new(name, :search, key, *args)
+    fail_unless_authorized(request, terminuses)
 
-    if cache? and cached = cache.find(request(:find, key, *args))
-      # Reuse the existing request, since it's equivalent.
-      cache.destroy(request)
-    end
-
-    result
+    terminuses.map { |terminus| terminus.search(request) }.inject(&:|)
   end
 
   # Search for more than one instance.  Should always return an array.
+  # Search is presently defined to return the union of the results of searching
+  # each find terminus. May or may not be the correct behavior.
   def search(key, *args)
-    request = request(:search, key, *args)
-    terminus = prepare(request)
+    search_thru(primary_terminuses_for(:find), key, *args)
+  end
 
-    if result = terminus.search(request)
-      raise Puppet::DevError, "Search results from terminus #{terminus.name} are not an array" unless result.is_a?(Array)
-      result.each do |instance|
-        next unless instance.respond_to? :expiration
-        instance.expiration ||= self.expiration
-      end
-      return result
+  def save_to(terminuses, instance, key = nil)
+    request = Puppet::Indirector::Request.new(name, :save, key, instance)
+    fail_unless_authorized(request, terminuses)
+
+    Puppet.debug "Saving #{model.name} to #{terminuses.map(&:name).map(&:to_s).inspect}"
+
+    results = terminuses.map {|terminus| terminus.save(request) }
+
+    assert_that "all save terminuses should return the instance provided" do
+      results.all? {|res| res == instance}
     end
+
+    results.first
   end
 
   # Save the instance in the appropriate terminus.  This method is
   # normally an instance method on the indirected class.
   def save(instance, key = nil)
-    request = request(:save, key, instance)
-    terminus = prepare(request)
-
-    result = terminus.save(request)
-
-    # If caching is enabled, save our document there
-    cache.save(request) if cache?
-
-    result
-  end
-
-  private
-
-  # Check authorization if there's a hook available; fail if there is one
-  # and it returns false.
-  def check_authorization(request, terminus)
-    # At this point, we're assuming authorization makes no sense without
-    # client information.
-    return unless request.node
-
-    # This is only to authorize via a terminus-specific authorization hook.
-    return unless terminus.respond_to?(:authorized?)
-
-    unless terminus.authorized?(request)
-      msg = "Not authorized to call #{request.method} on #{request}"
-      msg += " with #{request.options.inspect}" unless request.options.empty?
-      raise ArgumentError, msg
-    end
-  end
-
-  # Setup a request, pick the appropriate terminus, check the request's authorization, and return it.
-  def prepare(request)
-    # Pick our terminus.
-    if respond_to?(:select_terminus)
-      unless terminus_name = select_terminus(request)
-        raise ArgumentError, "Could not determine appropriate terminus for #{request}"
-      end
-    else
-      terminus_name = terminus_class
-    end
-
-    dest_terminus = terminus(terminus_name)
-    check_authorization(request, dest_terminus)
-
-    dest_terminus
+    save_to(primary_terminuses_for(:save), instance, key)
   end
 
   # Create a new terminus instance.
@@ -313,5 +249,25 @@ class Puppet::Indirector::Indirection
       raise ArgumentError, "Could not find terminus #{terminus_class} for indirection #{self.name}"
     end
     klass.new
+  end
+
+  private
+
+  # Check authorization if there's a hook available; fail if there is one
+  # and it returns false.
+  def fail_unless_authorized(request, terminuses)
+    # At this point, we're assuming authorization makes no sense without
+    # client information.
+    return unless request.node
+
+    # This is only to authorize via a terminus-specific authorization hook.
+    authorizing_terminuses = terminuses.select {|t| t.respond_to?(:authorized?)}
+    return unless authorizing_terminuses.any?
+
+    unless authorizing_terminuses.all? {|t| t.authorized?(request)}
+      msg = "Not authorized to call #{request.method} on #{request}"
+      msg += " with #{request.options.inspect}" unless request.options.empty?
+      raise ArgumentError, msg
+    end
   end
 end
