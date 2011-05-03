@@ -2,10 +2,7 @@ require 'puppet/network/client_request'
 require 'puppet/network/rest_authconfig'
 
 module Puppet::Network
-
   module RestAuthorization
-
-
     # Create our config object if necessary. If there's no configuration file
     # we install our defaults
     def authconfig
