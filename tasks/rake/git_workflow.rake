@@ -123,8 +123,15 @@ task :mail_patches do
     compose = ""
   end
 
+  # Optionally set the In-Reply-To header.
+  if ENV["IN_REPLY_TO"]
+    in_reply_to = "--in-reply-to '#{ENV["IN_REPLY_TO"]}'"
+  else
+    in_reply_to = ""
+  end
+
   # Now send the mail.
-  sh "git send-email #{compose} --no-signed-off-by-cc --suppress-from --to puppet-dev@googlegroups.com 00*.patch"
+  sh "git send-email #{in_reply_to} #{compose} --no-signed-off-by-cc --suppress-from --to puppet-dev@googlegroups.com 00*.patch"
 
   # Finally, clean up the patches
   sh "rm 00*.patch"
