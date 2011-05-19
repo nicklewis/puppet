@@ -2,8 +2,7 @@
 
 require File.dirname(__FILE__) + '/../../spec_helper'
 
-describe "Puppet::Util::Windows" do
-    confine :true => Puppet.features.windows?
+describe "Puppet::Util::Windows", :if => Puppet.features.microsoft_windows? do
 
     require 'puppet/util/windows_system'
 

@@ -2,9 +2,7 @@
 
 require File.dirname(__FILE__) + '/../../../spec_helper'
 
-describe "Provider for windows users" do
-    confine :true => Puppet.features.windows?
-
+describe "Provider for windows users", :if => Puppet.features.microsoft_windows? do
     require 'windowstest'
     include WindowsTest
 

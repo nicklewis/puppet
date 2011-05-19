@@ -3,7 +3,7 @@ require 'puppet/provider'
 Puppet::Type.type(:user).provide :useradd_win do
     desc "User management for windows"
 
-    confine :true => Puppet.features.windows?
+    confine :true => Puppet.features.microsoft_windows?
     require 'puppet/util/windows_system'
 
     has_features :manages_passwords

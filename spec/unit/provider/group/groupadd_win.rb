@@ -2,8 +2,7 @@
 
 require File.dirname(__FILE__) + '/../../../spec_helper'
 
-describe "Group management for Windows: useradd_win" do
-    confine :true => Puppet.features.windows?
+describe "Group management for Windows: useradd_win", :if => Puppet.features.microsoft_windows? do
     
     before(:each) do
         @resource = stub('resource')

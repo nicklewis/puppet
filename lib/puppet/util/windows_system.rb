@@ -1,8 +1,3 @@
-if Puppet.features.windows?
-    require 'win32ole'
-    require 'Win32API'
-end
-
 module Puppet::Util::ADSI
     def self.connectable?(uri)
         begin

@@ -2,8 +2,7 @@
 
 require File.dirname(__FILE__) + '/../../../spec_helper'
 
-describe "Provider for windows groups" do
-    confine :true => Puppet.features.windows?
+describe "Provider for windows groups", :if => Puppet.features.microsoft_windows? do
 
     require 'windowstest'
     include WindowsTest
