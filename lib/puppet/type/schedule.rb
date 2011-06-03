@@ -53,7 +53,7 @@ module Puppet
               period => daily,
               range => \"2 - 4\",
             }
-  
+
             exec { \"/usr/bin/apt-get update\":
               schedule => daily
             }
@@ -110,11 +110,24 @@ module Puppet
           [range[0][1], range[1][1]].each do |n|
             raise ArgumentError, "Invalid minute '#{n}'" if n and (n < 0 or n > 59)
           end
-          if range[0][0] > range[1][0]
-            self.fail(("Invalid range #{value}; ") +
-              "ranges cannot span days."
-            )
+
+          range.each do |r|
+            if not r[1]
+              r[1] = 0
+            end
+
+            if not r[2]
+              r[2] = 0
+            end
           end
+
+          if range[0][0] > range[1][0] or # Start hour is greater than end hour
+            (range[0][0] == range[1][0] and range[0][1] > range[1][1]) or # Hours are same, and start minute is greater than end minute
+            (range[0][0] == range[1][0] and range[0][1] == range[1][1] and range[0][2] > range[1][2]) # Hours, and minutes same, start seconds after end seconds
+
+            self.fail("End time is before start time: #{value}")
+          end
+
           ret << range
         }
 
@@ -130,18 +143,7 @@ module Puppet
 
         @value.each do |value|
           limits = value.collect do |range|
-            ary = [now.year, now.month, now.day, range[0]]
-            if range[1]
-              ary << range[1]
-            else
-              ary << now.min
-            end
-
-            if range[2]
-              ary << range[2]
-            else
-              ary << now.sec
-            end
+            ary = [now.year, now.month, now.day, range].flatten
 
             time = Time.local(*ary)
 
