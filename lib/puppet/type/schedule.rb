@@ -107,8 +107,10 @@ module Puppet
             raise ArgumentError, "Invalid hour '#{n}'" if n < 0 or n > 23
           end
 
-          [range[0][1], range[1][1]].each do |n|
-            raise ArgumentError, "Invalid minute '#{n}'" if n and (n < 0 or n > 59)
+          [[:minute, 1], [:second, 2]].each do |time_part|
+            [range[0][time_part[1]], range[1][time_part[1]]].each do |n|
+              raise ArgumentError, "Invalid #{time_part[0]} '#{n}' in #{value}" if n and (n < 0 or n > 59)
+            end
           end
 
           range.each do |r|

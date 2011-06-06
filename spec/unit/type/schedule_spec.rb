@@ -80,9 +80,51 @@ describe Puppet::Type.type(:schedule) do
       Time.stubs(:now).returns(Time.local(2011, "may", 23, 11, 0, 10))
     end
 
-    it "should not validate when hour is not between 0 and 23 inclusive"
-    it "should not validate when minutes are not between 0 and 59 inclusive"
-    it "should not validate when seconds are not between 0 and 59 inclusive"
+    describe "validating start times" do
+      it "should not validate when hour is not between 0 and 23 inclusive" do
+        lambda {
+          @schedule[:range] = "31:00:00 - 11:00:00"
+        }.should raise_error(Puppet::Error, /Invalid hour '31'/)
+      end
+
+      it "should not validate when minutes are not between 0 and 59 inclusive" do
+        lambda {
+          @schedule[:range] = "11:71:00 - 12:00:00"
+        }.should raise_error(Puppet::Error, /Invalid minute '71'/)
+      end
+
+      it "should not validate when seconds are not between 0 and 59 inclusive" do
+        lambda {
+          @schedule[:range] = "11:00:71 - 12:00:00"
+        }.should raise_error(Puppet::Error, /Invalid second '71'/)
+      end
+
+      it "should default seconds in start time to zero" do
+        @schedule[:range] = "11:00 - 11:20:00"
+        @schedule[:range].should == [[[11, 0, 0], [11, 20, 0]]]
+      end
+
+      it "should default minutes and seconds in start time to zero" do
+        @schedule[:range] = "11 - 11:20:10"
+        @schedule[:range].should == [[[11, 0, 0], [11, 20, 10]]]
+      end
+    end
+
+    describe "validating end times" do
+      it "should not validate when hour is not between 0 and 23 inclusive"
+      it "should not validate when minutes are not between 0 and 59 inclusive"
+      it "should not validate when seconds are not between 0 and 59 inclusive"
+
+      it "should default seconds in end time to zero" do
+        @schedule[:range] = "11:10:10 - 11:20"
+        @schedule[:range].should == [[[11, 10, 10], [11, 20, 0]]]
+      end
+
+      it "should default minutes and seconds in end time to zero" do
+        @schedule[:range] = "11:10:10 - 12"
+        @schedule[:range].should == [[[11, 10, 10], [12, 0, 0]]]
+      end
+    end
 
     it "should not validate when the end time is before the start time and the hour is the same" do
       lambda {
@@ -94,26 +136,6 @@ describe Puppet::Type.type(:schedule) do
       lambda {
         @schedule[:range] = "11:10:10 - 11:10:00"
       }.should raise_error(Puppet::Error, /End time is before start time: 11:10:10 - 11:10:00/)
-    end
-
-    it "should default seconds in start time to zero" do
-      @schedule[:range] = "11:00 - 11:20:00"
-      @schedule[:range].should == [[[11, 0, 0], [11, 20, 0]]]
-    end
-
-    it "should default seconds in end time to zero" do
-      @schedule[:range] = "11:10:10 - 11:20"
-      @schedule[:range].should == [[[11, 10, 10], [11, 20, 0]]]
-    end
-
-    it "should default minutes and seconds in start time to zero" do
-      @schedule[:range] = "11 - 11:20:10"
-      @schedule[:range].should == [[[11, 0, 0], [11, 20, 10]]]
-    end
-
-    it "should default minutes and seconds in end time to zero" do
-      @schedule[:range] = "11:10:10 - 12"
-      @schedule[:range].should == [[[11, 10, 10], [12, 0, 0]]]
     end
   end
 
