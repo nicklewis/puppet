@@ -90,6 +90,10 @@ describe Puppet::Indirector::REST do
     @rest_class.port.should == 543
   end
 
+  it 'should default to :puppet for the srv_service' do
+    Puppet::Indirector::REST.srv_service.should == :puppet
+  end
+
   describe "when deserializing responses" do
     it "should return nil if the response code is 404" do
       response = mock 'response'
@@ -214,6 +218,102 @@ describe Puppet::Indirector::REST do
       @searcher.class.stubs(:server).returns "myserver"
       Puppet::Network::HttpPool.expects(:http_instance).with("myserver", 321).returns "myconn"
       @searcher.network(@request).should == "myconn"
+    end
+  end
+
+  describe "when resolving servers for requests" do
+    before :each do
+      @request = Puppet::Indirector::Request.new(:indirection, :method, :key)
+      @block_return = 'returned from the block'
+    end
+
+    it "should return the request unmodified when not using SRV records" do
+      @request.server = 'puppet.example.com'
+      @request.port   = '90210'
+
+      count = 0
+      rval = @searcher.resolve_servers_for(@request) do |got|
+        count += 1
+        got.server.should == @request.server
+        got.port.should   == @request.port
+        @block_return
+      end
+      count.should == 1
+
+      rval.should == @block_return
+    end
+
+    it "should tell the resolver which service to use to look up SRV records" do
+      @rest_class.use_srv_service(:report)
+      Puppet::Network::Resolver.expects(:each_srv_record).with(
+        Puppet.settings[:srv_domain],
+        :report
+      ).returns(nil)
+
+      @searcher.resolve_servers_for(@request) {|x| }
+    end
+
+    it "should default to using the :puppet service to look up SRV records" do
+      @rest_class.use_srv_service(nil)
+      Puppet::Network::Resolver.expects(:each_srv_record).with(
+        Puppet.settings[:srv_domain],
+        :puppet
+      ).returns(nil)
+
+      @searcher.resolve_servers_for(@request) {|x| }
+    end
+
+    describe "when SRV returns servers" do
+      before :each do
+        @dns_mock = mock('dns')
+        Resolv::DNS.expects(:new).returns(@dns_mock)
+
+        @port = 7205
+        @host = '_x-puppet._tcp.example.com'
+        @srv_records = [Resolv::DNS::Resource::IN::SRV.new(0, 0, @port, @host)]
+
+        Puppet.settings[:use_srv_records] = true
+        @dns_mock.expects(:getresources).
+          with("_x-puppet._tcp.#{Puppet.settings[:srv_domain]}", Resolv::DNS::Resource::IN::SRV).
+          returns(@srv_records)
+      end
+
+      it "should return the SRV record when found" do
+        count = 0
+        rval = @searcher.resolve_servers_for(@request) do |got|
+          count += 1
+          got.server.should == '_x-puppet._tcp.example.com'
+          got.port.should == 7205
+
+          @block_return
+        end
+        count.should == 1
+
+        rval.should == @block_return
+      end
+
+      it "should fall back to the default server when the block raises a SystemCallError" do
+        count = 0
+        second_pass = nil
+
+        rval = @searcher.resolve_servers_for(@request) do |got|
+          count += 1
+
+          if got.server == '_x-puppet._tcp.example.com' then
+            raise SystemCallError, "example failure"
+          else
+            second_pass = got
+          end
+
+          @block_return
+        end
+
+        second_pass.server.should == 'puppet'
+        second_pass.port.should   == 8140
+        count.should == 2
+
+        rval.should == @block_return
+      end
     end
   end
 

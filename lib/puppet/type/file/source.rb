@@ -166,6 +166,10 @@ module Puppet
       URI.unescape(uri.path) if found? and uri
     end
 
+    def server?
+       uri and uri.host
+    end
+
     def server
       (uri and uri.host) or Puppet.settings[:server]
     end

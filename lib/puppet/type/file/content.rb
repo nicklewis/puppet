@@ -195,10 +195,29 @@ module Puppet
       end
     end
 
-    def chunk_file_from_source(source_or_content)
+
+    def get_from_source(source_or_content)
       request = Puppet::Indirector::Request.new(:file_content, :find, source_or_content.full_path.sub(/^\//,''))
+
+      if Puppet.settings[:use_srv_records] and ! source_or_content.server? then
+        Puppet::Network::Resolver.each_srv_record(Puppet.settings[:srv_record]) do |server, port|
+          begin
+            connection = Puppet::Network::HttpPool.http_instance(server, port)
+            return yield connection.request_get(indirection2uri(request), add_accept_encoding({"Accept" => "raw"}))
+          rescue SystemCallError => e
+            Puppet.warning "Error connecting to #{server}:#{port}: #{e.message}"
+          end
+        end
+        Puppet.debug "No more servers left, falling back to #{source_or_content.server}"
+      end
+
       connection = Puppet::Network::HttpPool.http_instance(source_or_content.server, source_or_content.port)
-      connection.request_get(indirection2uri(request), add_accept_encoding({"Accept" => "raw"})) do |response|
+      return yield connection.request_get(indirection2uri(request), add_accept_encoding({"Accept" => "raw"}))
+    end
+
+
+    def chunk_file_from_source(source_or_content)
+      get_from_source(source_or_content) do |response|
         case response.code
         when /^2/;  uncompress(response) { |uncompressor| response.read_body { |chunk| yield uncompressor.uncompress(chunk) } }
         else

@@ -4,6 +4,7 @@ require 'uri'
 require 'puppet/network/http_pool'
 require 'puppet/network/http/api/v1'
 require 'puppet/network/http/compression'
+require 'puppet/network/resolver'
 
 # Access objects via REST
 class Puppet::Indirector::REST < Puppet::Indirector::Terminus
@@ -19,17 +20,53 @@ class Puppet::Indirector::REST < Puppet::Indirector::Terminus
     @server_setting = setting
   end
 
-  def self.server
-    Puppet.settings[server_setting || :server]
-  end
-
   # Specify the setting that we should use to get the port.
   def self.use_port_setting(setting)
     @port_setting = setting
   end
 
+  # Specify the service to use when doing SRV record lookup
+  def self.use_srv_service(service)
+    @srv_service = service
+  end
+
+  def self.srv_service
+    @srv_service || :puppet
+  end
+
+  def self.server
+    Puppet.settings[server_setting || :server]
+  end
+
   def self.port
     Puppet.settings[port_setting || :masterport].to_i
+  end
+
+  def resolve_servers_for(request)
+    if !Puppet.settings[:use_srv_records]
+      request.server ||= self.class.server
+      request.port ||= self.class.port
+      return yield request
+    end
+
+    Puppet::Network::Resolver.each_srv_record(
+      Puppet.settings[:srv_domain],
+      self.class.srv_service
+    ) do |srv_server, srv_port|
+      begin
+        request.server = srv_server
+        request.port   = srv_port
+        return yield request
+      rescue SystemCallError => e
+        Puppet.warning "Error connecting to #{srv_server}:#{srv_port}: #{e.message}"
+      end
+    end
+
+    # ... Fall back onto the default server.
+    Puppet.debug "No more servers left, falling back to #{self.class.server}"
+    request.server = self.class.server
+    request.port = self.class.port
+    return yield request
   end
 
   # Figure out the content type, turn that into a format, and use the format
@@ -75,20 +112,29 @@ class Puppet::Indirector::REST < Puppet::Indirector::Terminus
     uri, body = request_to_uri_and_body(request)
     uri_with_query_string = "#{uri}?#{body}"
     http_connection = network(request)
-    # WEBrick in Ruby 1.9.1 only supports up to 1024 character lines in an HTTP request
-    # http://redmine.ruby-lang.org/issues/show/3991
-    response = if "GET #{uri_with_query_string} HTTP/1.1\r\n".length > 1024
-      http_connection.post(uri, body, headers)
-    else
-      http_connection.get(uri_with_query_string, headers)
+
+    response = resolve_servers_for(request) do |request|
+      # WEBrick in Ruby 1.9.1 only supports up to 1024 character lines in an HTTP request
+      # http://redmine.ruby-lang.org/issues/show/3991
+      if "GET #{uri_with_query_string} HTTP/1.1\r\n".length > 1024
+        http_connection.post(uri, body, headers)
+      else
+        http_connection.get(uri_with_query_string, headers)
+      end
     end
     result = deserialize response
+
+    return nil unless result
+
     result.name = request.key if result.respond_to?(:name=)
     result
   end
 
   def head(request)
-    response = network(request).head(indirection2uri(request), headers)
+    response = resolve_servers_for(request) do |request|
+      network(request).head(indirection2uri(request), headers)
+    end
+
     case response.code
     when "404"
       return false
@@ -101,20 +147,28 @@ class Puppet::Indirector::REST < Puppet::Indirector::Terminus
   end
 
   def search(request)
-    unless result = deserialize(network(request).get(indirection2uri(request), headers), true)
-      return []
+    result = resolve_servers_for(request) do |request|
+      deserialize(network(request).get(indirection2uri(request), headers), true)
     end
-    result
+
+    # result from the server can be nil, but we promise to return an array...
+    result || []
   end
 
   def destroy(request)
     raise ArgumentError, "DELETE does not accept options" unless request.options.empty?
-    deserialize network(request).delete(indirection2uri(request), headers)
+
+    resolve_servers_for(request) do |request|
+      return deserialize network(request).delete(indirection2uri(request), headers)
+    end
   end
 
   def save(request)
     raise ArgumentError, "PUT does not accept options" unless request.options.empty?
-    deserialize network(request).put(indirection2uri(request), request.instance.render, headers.merge({ "Content-Type" => request.instance.mime }))
+
+    resolve_servers_for(request) do |request|
+      deserialize network(request).put(indirection2uri(request), request.instance.render, headers.merge({ "Content-Type" => request.instance.mime }))
+    end
   end
 
   private
