@@ -4,7 +4,7 @@ require 'puppet/network/server'
 require 'puppet/ssl/certificate_authority'
 require 'socket'
 
-describe Puppet::Network::Server do
+describe Puppet::Network::Server, :unless => Puppet.features.microsoft_windows? do
   describe "when using webrick" do
     before :each do
       Puppet[:servertype] = 'webrick'
