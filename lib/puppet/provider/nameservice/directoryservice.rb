@@ -90,9 +90,6 @@ class DirectoryService < Puppet::Provider::NameService
   def self.get_macosx_version_major
     return @macosx_version_major if defined?(@macosx_version_major)
     begin
-      # Make sure we've loaded all of the facts
-      Facter.loadfacts
-
       if Facter.value(:macosx_productversion_major)
         product_version_major = Facter.value(:macosx_productversion_major)
       else
