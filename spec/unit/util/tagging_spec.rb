@@ -45,6 +45,12 @@ describe Puppet::Util::Tagging, "when adding tags" do
     @tagger.tags.should be_include("two")
   end
 
+  it "should add all provided tags in array to the tag list" do
+    @tagger.tag(["one", "two"])
+    @tagger.tags.should be_include("one")
+    @tagger.tags.should be_include("two")
+  end
+
   it "should fail on tags containing '*' characters" do
     lambda { @tagger.tag("bad*tag") }.should raise_error(Puppet::ParseError)
   end
