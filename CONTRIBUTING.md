@@ -8,6 +8,9 @@ Checklist (and a short version for the impatient)
     - Check for unnecessary whitespace with "git diff --check" before
       committing.
 
+    - Commit using Unix line endings (check the settings around "crlf" in
+      git-config(1)).
+   
     - Do not check in commented out code or unneeded files.
 
     - The first line of the commit message should be a short
@@ -64,18 +67,20 @@ The long version
       In general, you should always base your work on the oldest
       branch that your change is relevant to.
 
-        - A bug fix should be based on the current "stable" series.
-          If the bug is not present in the current stable release,
-          then base it on `master`.
+      - A bug fix should be based on the current stable series. If the
+        bug is not present in the current stable release, then base it on
+        `master`.
 
-        - A new feature should be based on `master`.
+      - A new feature should be based on `master`.
 
-        - Security fixes should be based on the previous "stable"
-          series.  If the security issue was not present in the
-          previous "stable" series, then it should be based on the
-          current "stable" series if it was introduced there, or on
-          "master" if it is not yet present in a released "stable"
-          series.
+      - Security fixes should be based on the current maintenance series
+        (that is, the previous stable series).  If the security issue
+        was not present in the maintenance series, then it should be
+        based on the current stable series if it was introduced there,
+        or on `master` if it is not yet present in a stable release.
+      
+      The current stable series is 2.7.x, and the current maintenance
+      series is 2.6.x.
 
   1.  Make separate commits for logically separate changes.
 
@@ -158,8 +163,7 @@ The long version
         You'll want to make sure that you have the appropriate
         destination branch in the repository under the puppetlabs
         organization.  This should be the same branch that you based
-        your changes off of when you decided what to base your work
-        on.
+        your changes off of.
 
       * Other pull requests
 
@@ -218,20 +222,20 @@ notifying people of this.  This notification is used to let the Puppet
 development community know about your requested change to give them a
 chance to review, test, and comment on the change(s).
 
-If you submitted your change via manually sending a pull request, or
-mailing the patches then we keep track of these using
+If you submitted your change via manually sending a pull request or
+mailing the patches, then we keep track of these using
 [patchwork](https://patchwork.puppetlabs.com).  When code is merged
 into the project it is automatically removed from patchwork, and the
 Redmine ticket is manually updated with the commit SHA1.  In addition,
 the ticket status must be updated by the person who merges the topic
 branch to a status of "Merged - Pending Release"
 
-If there hasn't been any commentary on the pull request or mailed
-patches, and it hasn't been merged in after a week, then feel free to
-ping the mailing list by replying to the automatic notification, or
-mailed patches that were sent out asking for an update, but please try
-to be polite about it (it probably wasn't intentional, and probably
-just slipped through the cracks).
+We do our best to comment on or merge submitted changes within a week.
+However, if there hasn't been any commentary on the pull request or
+mailed patches, and it hasn't been merged in after a week, then feel
+free to ask for an update by replying on the mailing list to the
+automatic notification or mailed patches. It probably wasn't
+intentional, and probably just slipped through the cracks.
 
 Additional Resources
 ====================
@@ -266,7 +270,7 @@ review.
   * Merging topic branches
 
     When merging code from a topic branch into the integration branch
-    (Ex: master, 2.7.x, 1.6.x, etc.) there should always be a merge
+    (Ex: master, 2.7.x, 1.6.x, etc.), there should always be a merge
     commit.  You can accomplish this by always providing the `--no-ff`
     flag to `git merge`.
 
