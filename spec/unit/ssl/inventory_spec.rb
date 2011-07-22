@@ -118,7 +118,7 @@ describe Puppet::SSL::Inventory do
       end
     end
 
-    describe "and formatting a certificate", :fails_on_windows => true do
+    describe "and formatting a certificate" do
       before do
         @cert = stub 'cert', :not_before => Time.now, :not_after => Time.now, :subject => "mycert", :serial => 15
       end
@@ -134,12 +134,18 @@ describe Puppet::SSL::Inventory do
       end
 
       it "should print the not_after date in '%Y-%m-%dT%H:%M:%S%Z' format in the third field" do
+        @cert.not_before.expects(:strftime).with('%Y-%m-%dT%H:%M:%S%Z').returns "before_time" if Puppet.features.microsoft_windows?
         @cert.not_after.expects(:strftime).with('%Y-%m-%dT%H:%M:%S%Z').returns "after_time"
 
         @inventory.format(@cert).split[2].should == "after_time"
       end
 
       it "should print the subject in the fourth field" do
+        if Puppet.features.microsoft_windows?
+          @cert.not_before.expects(:strftime).with('%Y-%m-%dT%H:%M:%S%Z').returns "before_time"
+          @cert.not_after.expects(:strftime).with('%Y-%m-%dT%H:%M:%S%Z').returns "after_time"
+        end
+
         @inventory.format(@cert).split[3].should == "mycert"
       end
 
