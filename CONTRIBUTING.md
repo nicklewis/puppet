@@ -10,7 +10,7 @@ Checklist (and a short version for the impatient)
 
     - Commit using Unix line endings (check the settings around "crlf" in
       git-config(1)).
-   
+
     - Do not check in commented out code or unneeded files.
 
     - The first line of the commit message should be a short
@@ -78,7 +78,7 @@ The long version
         was not present in the maintenance series, then it should be
         based on the current stable series if it was introduced there,
         or on `master` if it is not yet present in a stable release.
-      
+
       The current stable series is 2.7.x, and the current maintenance
       series is 2.6.x.
 
