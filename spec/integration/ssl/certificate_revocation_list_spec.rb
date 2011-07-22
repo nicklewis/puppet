@@ -6,26 +6,27 @@
 require 'spec_helper'
 
 require 'puppet/ssl/certificate_revocation_list'
-require 'tempfile'
 
-describe Puppet::SSL::CertificateRevocationList, :fails_on_windows => true do
+describe Puppet::SSL::CertificateRevocationList do
+  include PuppetSpec::Files
+
   before do
     # Get a safe temporary file
-    file = Tempfile.new("ca_integration_testing")
-    @dir = file.path
-    file.delete
+    dir = tmpdir("ca_integration_testing")
 
-    Puppet.settings[:confdir] = @dir
-    Puppet.settings[:vardir] = @dir
+    Puppet.settings[:confdir] = dir
+    Puppet.settings[:vardir] = dir
     Puppet.settings[:group] = Process.gid
 
     Puppet::SSL::Host.ca_location = :local
+
+    # REMIND: this is necessary because there is no user provider on windows yet
+    Puppet.features.stubs(:root?).returns false if Puppet.features.microsoft_windows?
   end
 
   after {
     Puppet::SSL::Host.ca_location = :none
 
-    system("rm -rf #{@dir}")
     Puppet.settings.clear
 
     # This is necessary so the terminus instances don't lie around.

@@ -6,24 +6,24 @@
 require 'spec_helper'
 
 require 'puppet/ssl/certificate_request'
-require 'tempfile'
 
-describe Puppet::SSL::CertificateRequest, :fails_on_windows => true do
+describe Puppet::SSL::CertificateRequest do
+  include PuppetSpec::Files
+
   before do
     # Get a safe temporary file
-    file = Tempfile.new("csr_integration_testing")
-    @dir = file.path
-    file.delete
-
-    Dir.mkdir(@dir)
+    dir = tmpdir("csr_integration_testing")
 
     Puppet.settings.clear
 
-    Puppet.settings[:confdir] = @dir
-    Puppet.settings[:vardir] = @dir
+    Puppet.settings[:confdir] = dir
+    Puppet.settings[:vardir] = dir
     Puppet.settings[:group] = Process.gid
 
     Puppet::SSL::Host.ca_location = :none
+
+    # REMIND: this is necessary because there is no user provider on windows yet
+    Puppet.features.stubs(:root?).returns false if Puppet.features.microsoft_windows?
 
     @csr = Puppet::SSL::CertificateRequest.new("luke.madstop.com")
 
@@ -34,7 +34,6 @@ describe Puppet::SSL::CertificateRequest, :fails_on_windows => true do
   end
 
   after do
-    system("rm -rf #{@dir}")
     Puppet.settings.clear
   end
 

@@ -6,20 +6,22 @@
 require 'spec_helper'
 
 require 'puppet/ssl/host'
-require 'tempfile'
 
-describe Puppet::SSL::Host, :fails_on_windows => true do
+describe Puppet::SSL::Host do
+  include PuppetSpec::Files
+
   before do
     # Get a safe temporary file
-    file = Tempfile.new("host_integration_testing")
-    @dir = file.path
-    file.delete
+    dir = tmpdir("host_integration_testing")
 
-    Puppet.settings[:confdir] = @dir
-    Puppet.settings[:vardir] = @dir
+    Puppet.settings[:confdir] = dir
+    Puppet.settings[:vardir] = dir
     Puppet.settings[:group] = Process.gid
 
     Puppet::SSL::Host.ca_location = :local
+
+    # REMIND: this is necessary because there is no user provider on windows yet
+    Puppet.features.stubs(:root?).returns false if Puppet.features.microsoft_windows?
 
     @host = Puppet::SSL::Host.new("luke.madstop.com")
     @ca = Puppet::SSL::CertificateAuthority.new
@@ -28,7 +30,6 @@ describe Puppet::SSL::Host, :fails_on_windows => true do
   after {
     Puppet::SSL::Host.ca_location = :none
 
-    system("rm -rf #{@dir}")
     Puppet.settings.clear
   }
 
@@ -80,7 +81,7 @@ describe Puppet::SSL::Host, :fails_on_windows => true do
     end
   end
 
-  it "should pass the verification of its own SSL store" do
+  it "should pass the verification of its own SSL store", :unless => Puppet.features.microsoft_windows? do
     @host.generate
     @ca = Puppet::SSL::CertificateAuthority.new
     @ca.sign(@host.name)
