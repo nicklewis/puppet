@@ -133,7 +133,7 @@ class Puppet::Node::Environment
     dir_regex = Puppet.features.microsoft_windows? ? /^[A-Za-z]:#{File::SEPARATOR}/ : /^#{File::SEPARATOR}/
     dirs.collect do |dir|
       if dir !~ dir_regex
-        File.join(Dir.getwd, dir)
+        File.expand_path(File.join(Dir.getwd, dir))
       else
         dir
       end
