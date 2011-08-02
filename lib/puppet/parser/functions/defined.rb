@@ -37,6 +37,7 @@ Puppet::Parser::Functions::newfunction(:defined, :type => :rvalue, :doc => "Dete
           break
         end
       when Puppet::Resource
+        Puppet.warning "Detecting puppet resource via defined() function is deprecated, use declared(). Detecting whether a class or resource type is defined is still supported."
         if findresource(val.to_s)
           result = true
           break

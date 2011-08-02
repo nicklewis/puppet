@@ -48,5 +48,6 @@ describe "the 'defined' function" do
     resource = Puppet::Resource.new("file", "/my/file")
     @compiler.add_resource(@scope, resource)
     @scope.function_defined(resource).should be_true
+    @logs.first.message.should == 'Detecting puppet resource via defined() function is deprecated, use declared(). Detecting whether a class or resource type is defined is still supported.'
   end
 end
