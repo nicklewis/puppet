@@ -2,18 +2,27 @@
 
 require 'spec_helper'
 
-describe "User management for Windows: useradd_win", :if => Puppet.features.microsoft_windows? do
+describe "User management for Windows: windows_adsi", :if => Puppet.features.microsoft_windows? do
 
   before(:each) do
     @resource = stub('resource')
     @resource.stubs(:[]).with(:name).returns('testuser')
     @resource.stubs(:[]).with(:password).returns('pwd')
+    @resource.stubs(:[]).with(:comment).returns('Test J. User')
 
-    provider_class = Puppet::Type.type(:user).provider(:useradd_win)
+    provider_class = Puppet::Type.type(:user).provider(:windows_adsi)
     @provider = provider_class.new(@resource)
 
     @user_mock = mock('user')
     @provider.stubs(:user).returns @user_mock
+  end
+
+  describe ".instances" do
+    it "should enumerate all users" do
+      # list_of_services = ['user1', 'user2', 'user3'].map { |s| stub('user', :username => s) }
+      # Win32::Service.expects(:services).returns(list_of_services)
+      # described_class.instances.map(&:name).should =~ ['user1', 'user2', 'user3']
+    end
   end
 
   it 'should be able to verify a users password using User::password_is?' do
@@ -75,4 +84,12 @@ describe "User management for Windows: useradd_win", :if => Puppet.features.micr
     Puppet::Util::Windows::User.expects(:delete).with('testuser')
     @provider.delete
   end
+
+  describe 'upcoming features' do
+    it 'should specify the users full name'
+    it 'should specify the users description or comment'
+    it 'should specify the users home directory'
+    it 'should manage the users h ssword (age/expire)'
+  end
+
 end

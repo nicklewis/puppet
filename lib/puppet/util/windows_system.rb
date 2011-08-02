@@ -1,23 +1,31 @@
+
+
 module Puppet::Util::ADSI
   def self.connectable?(uri)
-      begin
-        adsi_obj = WIN32OLE.connect(uri)
-        return adsi_obj != nil;
-      rescue
-      end
-
-      return false
+    begin
+      adsi_obj = WIN32OLE.connect(uri)
+      return adsi_obj != nil;
+    rescue
+        # Ignore exceptions: unconnectable
+    end
+    return false
   end
 
-	def self.connect(uri)
-		WIN32OLE.connect(uri)
-	end
+  def self.connect(uri)
+    Puppet.debug( "ADSI connect: #{uri}" )
+    begin
+      WIN32OLE.connect(uri)
+    rescue Exception => e
+      raise Puppet::Error.new( "ADSI connection error: #{e}" )
+    end
+  end
 end
 
 module Puppet::Util::Windows
   class Resource
     def Resource.uri(resource_name)
-        "#{Computer.resource_uri}/#{resource_name}"
+      Puppet.debug( "ADSI resource: #{Computer.resource_uri}/#{resource_name}" )
+      "#{Computer.resource_uri}/#{resource_name}"
     end
   end
 
@@ -27,9 +35,17 @@ module Puppet::Util::Windows
       @user = native_adsi_obj
     end
 
-    def user
-        @user = Puppet::Util::ADSI.connect(User.resource_uri(@username)) if @user == nil
-        return @user
+   def user
+      @user = Puppet::Util::ADSI.connect(User.resource_uri(@username)) if @user == nil
+      return @user
+    end
+
+    def commit
+      begin
+        user.SetInfo unless user.nil?
+      rescue Exception => e
+        raise Puppet::Error.new( "User update failed: #{e}" )
+      end
     end
 
     def password_is?(password)
@@ -40,20 +56,20 @@ module Puppet::Util::Windows
       flag = 0
 
       begin
-          flag = user.Get(flag_name)
+        flag = user.Get(flag_name)
       rescue
       end
 
       user.Put(flag_name, flag | value)
-      user.SetInfo
+      commit
     end
 
     def password=(password)
       user.SetPassword(password)
-      user.SetInfo
-
+      commit
       fADS_UF_DONT_EXPIRE_PASSWD = 0x10000
       add_flag("UserFlags", fADS_UF_DONT_EXPIRE_PASSWD)
+      Puppet.debug( "User #{@username}: password updated." )
     end
 
     def groups
@@ -62,11 +78,15 @@ module Puppet::Util::Windows
       return groups
     end
 
+
     def add_to_groups(group_names)
+      Puppet.debug( "User #{@username}: add groups [#{group_names.join(', ')}]" )
       group_names.each {|name| Group.new(name).add_member(@username) } if group_names.length > 0
     end
 
+
     def remove_from_groups(group_names)
+      Puppet.debug( "User #{@username}: remove groups [#{group_names.join(', ')}]" )
       group_names.each {|name| Group.new(name).remove_member(@username) } if group_names.length > 0
     end
 
@@ -94,14 +114,30 @@ module Puppet::Util::Windows
     def User.create(username, password)
       newuser = new(username, Computer.create("user", username))
       newuser.password = password
+      # newuser.description = username.capitalize
       yield newuser if block_given?
+      Puppet.debug( "User #{username}: added." )
       return newuser
     end
 
     def User.delete(username)
       Computer.delete("user", username)
+      Puppet.debug( "User #{username}: deleted." )
     end
-end
+
+    def self.instances
+      users ||= []
+      wmi = WIN32OLE.connect( Computer.wmi_resource_uri )
+      wql = wmi.execquery( "select * from win32_useraccount" )
+      wql.each{ |u| users << { 
+        :name => u.name, 
+        :uid => u.uid,
+        } 
+      } unless wql.nil?
+      users
+    end
+    
+   end
 
   class Group
     def initialize(groupname, native_adsi_obj = nil)
@@ -122,14 +158,24 @@ end
       return @group
     end
 
+    def commit
+      begin
+        group.SetInfo unless group.nil?
+      rescue Exception => e
+        raise Puppet::Error.new( "User update failed: #{e}" )
+      end
+    end
+
     def add_member(name)
       group.Add(Resource.uri(name))
-      group.SetInfo
+      commit
+      Puppet.debug( "Group #{@groupname}: added member [#{name}]" )
     end
 
     def remove_member(name)
       group.Remove(Resource.uri(name))
-      group.SetInfo
+      commit
+      Puppet.debug( "Group #{@groupname}: removed member [#{name}]" )
     end
 
     def members
@@ -140,16 +186,15 @@ end
 
     def set_members(members)
       return nil if members == nil || members.length == 0
-
       current_members = self.members
-
       members.inject([]) {|members_to_add, member| current_members.include?(member) ? members_to_add : members_to_add << member }.each {|member| add_member(member) }
       current_members.inject([]) {|members_to_remove, member| members.include?(member) ? members_to_remove : members_to_remove << member }.each {|member| remove_member(member) }
     end
 
-    def Group.create(name)
-      newgroup = new(name, Computer.create("group", name))
+    def Group.create(groupname)
+      newgroup = new(groupname, Computer.create("group", groupname))
       yield newgroup if block_given?
+      Puppet.debug( "Group #{groupname}: created." )
       return newgroup
     end
 
@@ -158,55 +203,70 @@ end
     end
 
     def Group.delete(name)
+      Puppet.debug( "Delete group [#{groupname}]" )
       Computer.delete("group", name)
+      Puppet.debug( "Group #{name}: deleted." )
     end
-end
+ 
+    def Group.instances
+      groups ||= []
+      wmi = WIN32OLE.connect( Computer.wmi_resource_uri )
+      wql = wmi.execquery( "select * from win32_group" )
+      wql.each{ |g| groups << { :name => g.name } } unless wql.nil?
+      groups
+    end
 
-module API
+  end
+
+  module API
     def self.GetComputerName
-        name = " " * 128
-        size = "128"
-        Win32API.new('kernel32','GetComputerName',['P','P'],'I').call(name,size)
-        return name.unpack("A*")
+      name = " " * 128
+      size = "128"
+      Win32API.new('kernel32','GetComputerName',['P','P'],'I').call(name,size)
+      return name.unpack("A*")
     end
 
     def self.LogonUser(username, password)
-        fLOGON32_LOGON_NETWORK_CLEARTEXT = 8
-        fLOGON32_PROVIDER_DEFAULT = 0
+      fLOGON32_LOGON_NETWORK_CLEARTEXT = 8
+      fLOGON32_PROVIDER_DEFAULT = 0
 
-        logon_user = Win32API.new("advapi32", "LogonUser", ['P', 'P', 'P', 'L', 'L', 'P'], 'L')
-        close_handle = Win32API.new("kernel32", "CloseHandle", ['P'], 'V')
+      logon_user = Win32API.new("advapi32", "LogonUser", ['P', 'P', 'P', 'L', 'L', 'P'], 'L')
+      close_handle = Win32API.new("kernel32", "CloseHandle", ['P'], 'V')
 
-        token = ' ' * 4
-        if logon_user.call(username, "", password, fLOGON32_LOGON_NETWORK_CLEARTEXT, fLOGON32_PROVIDER_DEFAULT, token) == 1
-            close_handle.call(token.unpack('L')[0])
-            return true
-        end
+      token = ' ' * 4
+      if logon_user.call(username, "", password, fLOGON32_LOGON_NETWORK_CLEARTEXT, fLOGON32_PROVIDER_DEFAULT, token) == 1
+        close_handle.call(token.unpack('L')[0])
+        return true
+      end
 
-        return false
+      return false
     end
   end
 
   class Computer
     def Computer.name
-        API.GetComputerName
+      API.GetComputerName
     end
 
     def Computer.resource_uri
-        computer_name = Computer.name
-        return "WinNT://#{computer_name}"
+      computer_name = Computer.name
+      return "WinNT://#{computer_name}"
+    end
+
+    def Computer.wmi_resource_uri( host = '.' )
+      return "winmgmts:{impersonationLevel=impersonate}!//#{host}/root/cimv2"
     end
 
     def Computer.api
-        return Puppet::Util::ADSI.connect(Computer.resource_uri)
+      return Puppet::Util::ADSI.connect(Computer.resource_uri)
     end
 
     def Computer.create(resource_type, name)
-        Computer.api.create(resource_type, name).SetInfo
+      Computer.api.create(resource_type, name).SetInfo
     end
 
     def Computer.delete(resource_type, name)
-        Computer.api.Delete(resource_type, name)
+      Computer.api.Delete(resource_type, name)
     end
   end
 end

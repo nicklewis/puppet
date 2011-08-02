@@ -2,13 +2,13 @@
 
 require 'spec_helper'
 
-describe "Group management for Windows: useradd_win", :if => Puppet.features.microsoft_windows? do
+describe "Group management for Windows: windows_adsi", :if => Puppet.features.microsoft_windows? do
 
   before(:each) do
     @resource = stub('resource')
     @resource.stubs(:[]).with(:name).returns('testgroup')
 
-    provider_class = Puppet::Type.type(:group).provider(:groupadd_win)
+    provider_class = Puppet::Type.type(:group).provider(:windows_adsi)
     @provider = provider_class.new(@resource)
 
     @group_mock = mock('group')
@@ -50,5 +50,9 @@ describe "Group management for Windows: useradd_win", :if => Puppet.features.mic
 
     Puppet::Util::Windows::Group.expects(:exists?).with('testgroup').returns false
     @provider.should_not be_exists
+  end
+
+  describe 'upcoming features' do
+    it 'should specify a descriptive name or comment for the group'
   end
 end
