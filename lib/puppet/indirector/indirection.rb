@@ -49,7 +49,7 @@ class Puppet::Indirector::Indirection
   def initialize(model, name, options = {})
     @model = model
     @name = name
-    @terminuses = {}
+    @terminuses = Hash.new []
 
     raise(ArgumentError, "Indirection #{@name} is already defined") if @@indirections[@name]
     @@indirections[@name] = self

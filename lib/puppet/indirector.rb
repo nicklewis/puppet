@@ -38,6 +38,7 @@ module Puppet::Indirector
     raise(ArgumentError, "Already handling indirection for #{@indirection.name}; cannot also handle #{indirection}") if @indirection
     # populate this class with the various new methods
     extend ClassMethods
+    include InstanceMethods
     include Puppet::Indirector::Envelope
     extend Puppet::Network::FormatHandler
 
@@ -48,5 +49,27 @@ module Puppet::Indirector
 
   module ClassMethods
     attr_reader :indirection
+
+    def find(key, *args)
+      indirection.find_from(primary_terminuses_for(:find), key, *args)
+    end
+
+    def search(key, *args)
+      indirection.search_thru(primary_terminuses_for(:search), key, *args)
+    end
+
+    def destroy(key, *args)
+      indirection.destroy_from(primary_terminuses_for(:destroy), key, *args)
+    end
+
+    def head(key, *args)
+      indirection.head_from(primary_terminuses_for(:head), key, *args)
+    end
+  end
+
+  module InstanceMethods
+    def save(key = nil)
+      indirection.save_to(primary_terminuses_for(:save), self, key)
+    end
   end
 end
