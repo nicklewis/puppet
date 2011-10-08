@@ -4,18 +4,16 @@ require 'uri'
 Puppet::Type.type(:package).provide :brew, :parent => Puppet::Provider::Package do
     desc "Ruby Homebrew support."
 
-    commands :brewcmd => "brew"
+    commands :brew => "brew"
 
     has_feature :versionable
 
     def install
-        command = [command(:brewcmd), "install", resource[:name]]
-        output = execute(command)
+        brew "install", resource[:name]
     end
 
     def uninstall
-        command = [command(:brewcmd), "uninstall", resource[:name]]
-        output = execute(command)
+        brew "uninstall", resource[:name]
     end
 
     def update
@@ -24,8 +22,7 @@ Puppet::Type.type(:package).provide :brew, :parent => Puppet::Provider::Package 
     end
 
     def cleanup
-      command = [command(:brewcmd), "cleanup", resource[:name]]
-      execute(command)
+      brew "cleanup", resource[:name]
     end
 
     def query
