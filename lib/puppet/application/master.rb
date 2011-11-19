@@ -228,6 +228,12 @@ Copyright (c) 2011 Puppet Labs, LLC Licensed under the Apache 2.0 License
 
     Puppet.settings.use :main, :master, :ssl, :metrics
 
+    # The default facts terminus is facter, but we don't want to use that for
+    # the master, so we impose our own default (only if they left it as
+    # facter).
+    Puppet[:facts_terminus] = :yaml if Puppet[:facts_terminus].to_sym == :facter
+    Puppet::Node::Facts.indirection.reset_terminus_class
+
     # Cache our nodes in yaml.  Currently not configurable.
     Puppet::Node.indirection.cache_class = :yaml
 

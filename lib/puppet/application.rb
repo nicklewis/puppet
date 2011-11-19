@@ -126,6 +126,8 @@ class Application
 
     attr_accessor :run_status
 
+    attr_reader :application_loader
+
     def clear!
       self.run_status = nil
     end
@@ -213,20 +215,21 @@ class Application
     end
 
     def find(name)
-      klass = name.to_s.capitalize
-
-      begin
-        require ::File.join('puppet', 'application', name.to_s.downcase)
-      rescue LoadError => e
-        puts "Unable to find application '#{name}'.  #{e}"
-        Kernel::exit(1)
+      if application_loader.load(name)
+        self.const_get(name.to_s.capitalize)
+      else
+        puts "Unable to find application '#{name}'."
       end
-
-      self.const_get(klass)
     end
 
     def [](name)
       find(name).new
+    end
+
+    def available_applications
+      application_loader.files_to_load.map do |path|
+        File.basename(path, '.rb')
+      end.uniq
     end
 
     # Sets or gets the run_mode name. Sets the run_mode name if a mode_name is
@@ -239,6 +242,9 @@ class Application
       @run_mode = Puppet::Util::RunMode[ mode_name || :user ]
     end
   end
+
+  require 'puppet/util/autoload'
+  @application_loader = Puppet::Util::Autoload.new(self, 'puppet/application')
 
   attr_reader :options, :command_line
 
@@ -266,10 +272,10 @@ class Application
 
     require 'puppet/util/command_line'
     @command_line = command_line || Puppet::Util::CommandLine.new
+
     set_run_mode self.class.run_mode
     @options = {}
 
-    require 'puppet'
     require 'puppet/util/instrumentation'
     Puppet::Util::Instrumentation.init
   end
@@ -419,3 +425,5 @@ class Application
   end
 end
 end
+
+require 'puppet'

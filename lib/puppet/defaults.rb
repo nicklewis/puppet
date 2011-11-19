@@ -92,6 +92,11 @@ module Puppet
         $LOAD_PATH << value
       end
     },
+    :modulepath => {
+      :default => "$confdir/modules#{File::PATH_SEPARATOR}/usr/share/puppet/modules",
+      :desc => "The search path for modules, as a list of directories separated by the system path separator character. (The POSIX path separator is ':', and the Windows path separator is ';'.)",
+      :type => :setting # We don't want this to be considered a file, since it's multiple files.
+    },
     :ignoreimport => [false, "If true, allows the parser to continue without requiring
       all files referenced with `import` statements to exist. This setting was primarily
       designed for use with commit hooks for parse-checking."],
@@ -137,7 +142,7 @@ module Puppet
     :catalog_terminus => ["compiler", "Where to get node catalogs.  This is useful to change if, for instance,
       you'd like to pre-compile catalogs and store them in memcached or some other easily-accessed store."],
     :facts_terminus => {
-      :default => Puppet.application_name.to_s == "master" ? 'yaml' : 'facter',
+      :default => 'facter',
       :desc => "The node facts terminus.",
       :hook => proc do |value|
         require 'puppet/node/facts'
@@ -507,11 +512,6 @@ EOT
       authorization system for `puppet master`."
     ],
     :ca => [true, "Wether the master should function as a certificate authority."],
-    :modulepath => {
-      :default => "$confdir/modules#{File::PATH_SEPARATOR}/usr/share/puppet/modules",
-      :desc => "The search path for modules, as a list of directories separated by the system path separator character. (The POSIX path separator is ':', and the Windows path separator is ';'.)",
-      :type => :setting # We don't want this to be considered a file, since it's multiple files.
-    },
     :ssl_client_header => ["HTTP_X_CLIENT_DN", "The header containing an authenticated
       client's SSL DN.  Only used with Mongrel.  This header must be set by the proxy
       to the authenticated client's SSL DN (e.g., `/CN=puppet.puppetlabs.com`).

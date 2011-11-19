@@ -462,7 +462,6 @@ class Puppet::Util::Settings
       command_line = Puppet::Util::CommandLine.new
       @app_names = Puppet::Util::CommandLine::LegacyName.inject({}) do |hash, pair|
         app, legacy = pair
-        command_line.require_application app
         hash[legacy.to_sym] = Puppet::Application.find(app).run_mode.name
         hash
       end

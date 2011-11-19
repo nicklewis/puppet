@@ -102,7 +102,7 @@ Puppet::Face.define(:help, '0.0.1') do
 
   def legacy_applications
     # The list of applications, less those that are duplicated as a face.
-    Puppet::Util::CommandLine.available_subcommands.reject do |appname|
+    Puppet::Application.available_applications.reject do |appname|
       Puppet::Face.face? appname.to_sym, :current or
         # ...this is a nasty way to exclude non-applications. :(
         %w{face_base indirection_base}.include? appname
