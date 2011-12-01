@@ -182,6 +182,16 @@ class Puppet::Parser::Resource < Puppet::Resource
     @parameters[param.name] = param
   end
 
+  # Returns a hash of the parameters passed to this resource which correspond
+  # to arguments derived from the parent type.
+  def inherited_parameters(parent_type)
+    params_for_inherited_args = parameters.values.select {|param| parent_type.arguments.include? param.name.to_s}
+
+    params_for_inherited_args.inject({}) do |hash,param|
+      hash.merge param.name => param.value
+    end
+  end
+
   def to_hash
     @parameters.inject({}) do |hash, ary|
       param = ary[1]

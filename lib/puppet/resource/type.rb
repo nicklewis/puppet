@@ -166,13 +166,25 @@ class Puppet::Resource::Type
 
   def instantiate_resource(scope, resource)
     # Make sure our parent class has been evaluated, if we have one.
-    if parent && !scope.catalog.resource(resource.type, parent)
-      parent_type(scope).ensure_in_catalog(scope)
+    if parent
+      parent_type = parent_type(scope)
+
+      inherit_arguments(parent_type)
+
+      unless scope.catalog.resource(resource.type, parent)
+        parent_type.ensure_in_catalog(scope, resource.inherited_parameters(parent_type))
+      end
     end
 
     if ['Class', 'Node'].include? resource.type
       scope.catalog.tag(*resource.tags)
     end
+  end
+
+  def inherit_arguments(parent_type)
+    args_to_inherit = parent_type.arguments.reject {|k,v| arguments.include?(k)}
+
+    set_arguments(args_to_inherit)
   end
 
   def name
@@ -272,7 +284,7 @@ class Puppet::Resource::Type
   end
 
   def set_arguments(arguments)
-    @arguments = {}
+    @arguments ||= {}
     return if arguments.nil?
 
     arguments.each do |arg, default|
