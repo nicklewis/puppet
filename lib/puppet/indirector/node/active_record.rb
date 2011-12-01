@@ -6,8 +6,9 @@ class Puppet::Node::ActiveRecord < Puppet::Indirector::ActiveRecord
   use_ar_model Puppet::Rails::Host
 
   def find(request)
-    node = super
-    node.fact_merge
+    if node = super
+      node.fact_merge
+    end
     node
   end
 end

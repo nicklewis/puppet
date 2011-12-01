@@ -18,20 +18,31 @@ describe "Puppet::Node::ActiveRecord", :if => Puppet.features.rails? && Puppet.f
     Puppet::Node::ActiveRecord.ar_model.should equal(Puppet::Rails::Host)
   end
 
-  it "should call fact_merge when a node is found" do
-    db_instance = stub 'db_instance'
-    Puppet::Node::ActiveRecord.ar_model.expects(:find_by_name).returns db_instance
+  describe "#find" do
+    let(:terminus) { Puppet::Node::ActiveRecord.new }
+    let(:request) { Puppet::Indirector::Request.new(:node, :find, "what.ever") }
 
-    node = Puppet::Node.new("foo")
-    db_instance.expects(:to_puppet).returns node
+    before :each do
+      Puppet[:statedir] = tmpdir('active_record_tmp')
+      Puppet[:railslog] = '$statedir/rails.log'
+    end
 
-    Puppet[:statedir] = tmpdir('active_record_tmp')
-    Puppet[:railslog] = '$statedir/rails.log'
-    ar = Puppet::Node::ActiveRecord.new
+    it "should call fact_merge when a node is found" do
+      db_instance = stub 'db_instance'
+      Puppet::Node::ActiveRecord.ar_model.expects(:find_by_name).returns db_instance
 
-    node.expects(:fact_merge)
+      node = Puppet::Node.new("foo")
+      db_instance.expects(:to_puppet).returns node
 
-    request = Puppet::Indirector::Request.new(:node, :find, "what.ever")
-    ar.find(request)
+      node.expects(:fact_merge)
+
+      terminus.find(request)
+    end
+
+    it "should return nil when a node is not found" do
+      Puppet::Node::ActiveRecord.ar_model.expects(:find_by_name).returns nil
+
+      terminus.find(request)
+    end
   end
 end
