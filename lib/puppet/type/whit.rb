@@ -9,10 +9,22 @@ Puppet::Type.newtype(:whit) do
     desc "The name of the whit, because it must have one."
   end
 
+  WhitTypeToVerb = {
+    'admissible' => 'Start',
+    'completed'  => 'Finish',
+  }
 
-  # Hide the fact that we're a whit from logs
+  ## Hide the fact that we're a whit from logs
   def to_s
-    name.sub(/^completed_|^admissible_/, "")
+    str = super
+    if str =~ /^Whit\[(admissible|completed)_([^[]+)\[(.*)\]\]$/i
+      verb = WhitTypeToVerb[$1.downcase]
+      type = $2.capitalize
+      name = $3
+      "#{verb} #{type}[#{name}]"
+    else
+      str
+    end
   end
 
   def path
