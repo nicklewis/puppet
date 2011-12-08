@@ -150,6 +150,7 @@ rvalue:       quotedtext
   | variable
   | array
   | hasharrayaccesses
+  | parameterlookup
   | resourceref
   | funcrvalue
   | undef
@@ -784,6 +785,17 @@ hasharrayaccess: VARIABLE LBRACK expression RBRACK {
 hasharrayaccesses:    hasharrayaccess
   | hasharrayaccesses LBRACK expression RBRACK {
     result = ast AST::HashOrArrayAccess, :variable => val[0], :key => val[2]
+}
+
+resourceish: name
+  | variable
+  | array
+  | hasharrayaccesses
+  | parameterlookup
+  | resourceref
+
+parameterlookup: resourceish DOT NAME {
+  result = ast AST::ParameterLookup, :resource => val[0], :parameter => val[2][:value]
 }
 
 end
