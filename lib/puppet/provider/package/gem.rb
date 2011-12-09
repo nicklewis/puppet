@@ -10,39 +10,24 @@ Puppet::Type.type(:package).provide :gem, :parent => Puppet::Provider::Package d
 
   has_feature :versionable
 
-  commands :gemcmd => "gem"
+  commands :gem => "gem"
 
   def self.gemlist(hash)
-    command = [command(:gemcmd), "list"]
+    args = ['list']
 
-    if hash[:local]
-      command << "--local"
-    else
-      command << "--remote"
-    end
+    args << hash[:local] ? '--local' : '--remote'
 
-    if name = hash[:justme]
-      command << name + "$"
-    end
+    args << name + "$" if name = hash[:justme]
 
     begin
-      list = execute(command).split("\n").collect do |set|
-        if gemhash = gemsplit(set)
-          gemhash[:provider] = :gem
-          gemhash
-        else
-          nil
-        end
+      list = gem(*args).lines.map do |set|
+        gemsplit(set)
       end.compact
     rescue Puppet::ExecutionFailure => detail
       raise Puppet::Error, "Could not list gems: #{detail}"
     end
 
-    if hash[:justme]
-      return list.shift
-    else
-      return list
-    end
+    hash[:justme] ? list.first : list
   end
 
   def self.gemsplit(desc)
@@ -51,9 +36,10 @@ Puppet::Type.type(:package).provide :gem, :parent => Puppet::Provider::Package d
     when /^(\S+)\s+\((.+)\)/
       name = $1
       version = $2.split(/,\s*/)[0]
-      return {
+      {
         :name => name,
-        :ensure => version
+        :ensure => version,
+        :provider => :gem,
       }
     else
       Puppet.warning "Could not match #{desc}"
@@ -61,17 +47,15 @@ Puppet::Type.type(:package).provide :gem, :parent => Puppet::Provider::Package d
     end
   end
 
-  def self.instances(justme = false)
+  def self.instances
     gemlist(:local => true).collect do |hash|
       new(hash)
     end
   end
 
   def install(useversion = true)
-    command = [command(:gemcmd), "install"]
-    command << "-v" << resource[:ensure] if (! resource[:ensure].is_a? Symbol) and useversion
-    # Always include dependencies
-    command << "--include-dependencies"
+    args = []
+    args << "-v" << resource[:ensure] if (! resource[:ensure].is_a? Symbol) and useversion
 
     if source = resource[:source]
       begin
@@ -83,21 +67,23 @@ Puppet::Type.type(:package).provide :gem, :parent => Puppet::Provider::Package d
       case uri.scheme
       when nil
         # no URI scheme => interpret the source as a local file
-        command << source
+        args << source
       when /file/i
-        command << uri.path
+        args << uri.path
       when 'puppet'
         # we don't support puppet:// URLs (yet)
         raise Puppet::Error.new("puppet:// URLs are not supported as gem sources")
       else
         # interpret it as a gem repository
-        command << "--source" << "#{source}" << resource[:name]
+        args.concat ['--source', source, resource[:name]]
       end
     else
-      command << "--no-rdoc" << "--no-ri" << resource[:name]
+      args.concat ['--no-rdoc', '--no-ri', resource[:name]]
     end
 
-    output = execute(command)
+    # Always include dependencies
+    output = gem('install', '--include-dependencies', *args)
+
     # Apparently some stupid gem versions don't exit non-0 on failure
     self.fail "Could not install: #{output.chomp}" if output.include?("ERROR")
   end
@@ -114,7 +100,7 @@ Puppet::Type.type(:package).provide :gem, :parent => Puppet::Provider::Package d
   end
 
   def uninstall
-    gemcmd "uninstall", "-x", "-a", resource[:name]
+    gem *%W[uninstall -x -a #{resource[:name]}]
   end
 
   def update
