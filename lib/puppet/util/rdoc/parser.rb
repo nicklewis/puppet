@@ -6,20 +6,27 @@
 # rdoc mandatory includes
 require "rdoc/code_objects"
 require "puppet/util/rdoc/code_objects"
-require "rdoc/tokenstream"
 
-if ::RUBY_VERSION =~ /1.9/
-	require "rdoc/markup/preprocess"
-	require "rdoc/parser"
-else
-	require "rdoc/markup/simple_markup/preprocess"
-	require "rdoc/parsers/parserfactory"
+# THE WORST.
+case ::RUBY_VERSION
+when /1.8/
+  require "rdoc/tokenstream"
+  require "rdoc/markup/simple_markup/preprocess"
+  require "rdoc/parsers/parserfactory"
+when /1.9/
+  require "rdoc/tokenstream"
+  require "rdoc/markup/preprocess"
+  require "rdoc/parser"
+when /2.0/
+  require "rdoc/token_stream"
+  require "rdoc/markup/pre_process"
+  require "rdoc/parser"
 end
 
 module RDoc
 
 class Parser
-  extend ParserFactory unless ::RUBY_VERSION =~ /1.9/
+  extend ParserFactory if ::RUBY_VERSION =~ /1.8/
 
   SITE = "__site__"
 

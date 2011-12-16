@@ -231,13 +231,13 @@ module Puppet
 
       newvalues(:hourly, :daily, :weekly, :monthly, :never)
 
-      @@scale = {
+      Scales = {
         :hourly => 3600,
         :daily => 86400,
         :weekly => 604800,
         :monthly => 2592000
       }
-      @@methods = {
+      Methods = {
         :hourly => :hour,
         :daily => :day,
         :monthly => :month,
@@ -254,7 +254,7 @@ module Puppet
         value = self.value
         case @resource[:periodmatch]
         when :number
-          method = @@methods[value]
+          method = Methods[value]
           if method.is_a?(Proc)
             return method.call(previous, now)
           else
@@ -262,7 +262,7 @@ module Puppet
             return now.send(method) != previous.send(method)
           end
         when :distance
-          scale = @@scale[value]
+          scale = Scales[value]
 
           # If the number of seconds between the two times is greater
           # than the unit of time, we match.  We divide the scale

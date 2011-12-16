@@ -26,14 +26,13 @@ describe Puppet::Application do
       @klass.find("Agent").should == @klass::Agent
     end
 
-    it "should not find classes outside the namespace", :'fails_on_ruby_1.9.2' => true do
+    it "should not find classes outside the namespace" do
       expect { @klass.find("String") }.to exit_with 1
     end
 
     it "should exit if it can't find a class" do
-      reg = "Unable to find application 'ThisShallNeverEverEverExist'.  "
-      reg += "no such file to load -- puppet/application/thisshallneverevereverexist"
-      @klass.expects(:puts).with(reg)
+      reg = %r[Unable to find application 'ThisShallNeverEverEverExist'.*-- puppet/application/thisshallneverevereverexist]
+      @klass.expects(:puts).with {|msg| msg =~ reg }
 
       expect { @klass.find("ThisShallNeverEverEverExist") }.to exit_with 1
     end
@@ -226,17 +225,11 @@ describe Puppet::Application do
     end
 
     describe 'on POSIX systems', :if => Puppet.features.posix? do
-      it 'should signal process with HUP after block if restart requested during block execution', :'fails_on_ruby_1.9.2' => true do
+      it 'should signal process with HUP after block if restart requested during block execution' do
         Puppet::Application.run_status = nil
-        target = mock 'target'
-        target.expects(:some_method).once
-        old_handler = trap('HUP') { target.some_method }
-        begin
-          Puppet::Application.controlled_run do
-            Puppet::Application.run_status = :restart_requested
-          end
-        ensure
-          trap('HUP', old_handler)
+        Process.expects(:kill).with(:HUP, $PID)
+        Puppet::Application.controlled_run do
+          Puppet::Application.run_status = :restart_requested
         end
       end
     end

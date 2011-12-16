@@ -40,6 +40,7 @@ describe Puppet::Application::Doc do
       expect { puppet.run_command }.to exit_with 0
 
       File.should be_exist('doc')
+      pp @logs
     ensure
       Dir.chdir(old_dir)
     end

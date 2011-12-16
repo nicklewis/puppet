@@ -129,7 +129,7 @@ module Puppet::Util::ClassGen
   #
   # See http://redmine.ruby-lang.org/issues/show/1915
   def is_constant_defined?(const)
-    if ::RUBY_VERSION =~ /1.9/
+    if ::RUBY_VERSION !~ /1.8/
       const_defined?(const, false)
     else
       const_defined?(const)
