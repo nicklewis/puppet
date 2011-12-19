@@ -177,7 +177,7 @@ describe Puppet::Application::FaceBase do
       end
     end
 
-    it "should handle application-level options", :'fails_on_ruby_1.9.2' => true do
+    it "should handle application-level options" do
       app.command_line.stubs(:args).returns %w{--verbose return_true}
       app.preinit
       app.parse_options
