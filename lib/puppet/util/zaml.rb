@@ -129,7 +129,7 @@ end
 
 class Object
   def to_yaml_properties
-    instance_variables.sort        # Default YAML behavior
+    instance_variables.map(&:to_s).sort        # Default YAML behavior
   end
   def yaml_property_munge(x)
     x

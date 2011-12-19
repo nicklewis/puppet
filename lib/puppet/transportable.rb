@@ -83,7 +83,7 @@ module Puppet
     end
 
     def to_yaml_properties
-      instance_variables.reject { |v| %w{@ref}.include?(v) }
+      instance_variables.map(&:to_s) - ['@ref']
     end
 
     def to_ref
@@ -173,7 +173,7 @@ module Puppet
     end
 
     def to_yaml_properties
-      instance_variables
+      instance_variables.map(&:to_s)
     end
 
     # Create a resource graph from our structure.
