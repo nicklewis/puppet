@@ -155,7 +155,7 @@ describe Puppet::Network::Handler::FileServer do
     list.sort.should == [ ["/aFile", "file"], ["/", "directory"] ].sort
   end
 
-  describe Puppet::Network::Handler::FileServer::PluginMount, :'fails_on_ruby_1.9.2' => true do
+  describe Puppet::Network::Handler::FileServer::PluginMount do
     PLUGINS = Puppet::Network::Handler::FileServer::PLUGINS
 
     # create a module plugin hierarchy
@@ -173,7 +173,7 @@ describe Puppet::Network::Handler::FileServer do
       @modules = ["one","two"]
       @modules.each { |m| create_plugin(m, "facter") }
 
-      Puppet::Node::Environment.new.stubs(:modulepath).returns @basedir
+      Puppet::Node::Environment.new.stubs(:modulepath).returns [@basedir]
 
       @mount = Puppet::Network::Handler::FileServer::PluginMount.new(PLUGINS)
       @mount.allow("*")
