@@ -1,4 +1,5 @@
 #!/usr/bin/env rspec
+# Encoding: UTF-8
 require 'spec_helper'
 
 require 'puppet/util/pson'
@@ -7,7 +8,7 @@ class PsonUtil
   include Puppet::Util::Pson
 end
 
-describe Puppet::Util::Pson, :'fails_on_ruby_1.9.2' => true do
+describe Puppet::Util::Pson do
   it "should fail if no data is provided" do
     lambda { PsonUtil.new.pson_create("type" => "foo") }.should raise_error(ArgumentError)
   end
@@ -26,13 +27,28 @@ describe Puppet::Util::Pson, :'fails_on_ruby_1.9.2' => true do
     [] => '[]'
   }.each { |str,pson|
     it "should be able to encode #{str.inspect}" do
-      str.to_pson.should == pson
+      result = str.to_pson
+      if result.respond_to?(:encoding)
+        result.force_encoding('binary')
+        pson.force_encoding('binary')
+      end
+
+      result.should == pson
     end
   }
 
   it "should be able to handle arbitrary binary data" do
     bin_string = (1..20000).collect { |i| ((17*i+13*i*i) % 255).chr }.join
-    PSON.parse(%Q{{ "type": "foo", "data": #{bin_string.to_pson} }})["data"].should == bin_string
+    result = PSON.parse(%Q{{ "type": "foo", "data": #{bin_string.to_pson} }})["data"]
+
+    # It seems the rspec string matcher can't handle invalid UTF-8 bytes, so
+    # force it to do binary comparison.
+    if result.respond_to?(:encoding)
+      result.force_encoding('binary')
+      bin_string.force_encoding('binary')
+    end
+
+    result.should == bin_string
   end
 
   it "should be able to handle UTF8 that isn't a real unicode character" do
