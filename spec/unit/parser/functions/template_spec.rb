@@ -1,7 +1,7 @@
 #!/usr/bin/env rspec
 require 'spec_helper'
 
-describe "the template function", :'fails_on_ruby_1.9.2' => true do
+describe "the template function" do
   before :all do
     Puppet::Parser::Functions.autoloader.loadall
   end
@@ -19,7 +19,7 @@ describe "the template function", :'fails_on_ruby_1.9.2' => true do
 
     Puppet::Parser::TemplateWrapper.expects(:new).returns(tw)
 
-    @scope.function_template("test")
+    @scope.function_template(["test"])
   end
 
   it "should give the template filename to the TemplateWrapper" do
@@ -28,17 +28,17 @@ describe "the template function", :'fails_on_ruby_1.9.2' => true do
 
     tw.expects(:file=).with("test")
 
-    @scope.function_template("test")
+    @scope.function_template(["test"])
   end
 
   it "should return what TemplateWrapper.result returns" do
     tw = stub_everything 'template_wrapper'
     Puppet::Parser::TemplateWrapper.stubs(:new).returns(tw)
-    tw.stubs(:file=).with("test")
+    tw.stubs(:file=).with(["test"])
 
     tw.expects(:result).returns("template contents evaluated")
 
-    @scope.function_template("test").should == "template contents evaluated"
+    @scope.function_template(["test"]).should == "template contents evaluated"
   end
 
   it "should concatenate template wrapper outputs for multiple templates" do
@@ -58,7 +58,7 @@ describe "the template function", :'fails_on_ruby_1.9.2' => true do
     Puppet::Parser::TemplateWrapper.stubs(:new).returns(tw)
     tw.stubs(:result).raises
 
-    lambda { @scope.function_template("1") }.should raise_error(Puppet::ParseError)
+    lambda { @scope.function_template(["1"]) }.should raise_error(Puppet::ParseError)
   end
 
 end
