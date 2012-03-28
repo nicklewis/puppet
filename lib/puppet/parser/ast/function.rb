@@ -11,26 +11,40 @@ class Puppet::Parser::AST
     @settor = true
 
     def evaluate(scope)
-      # Make sure it's a defined function
-      raise Puppet::ParseError, "Unknown function #{@name}" unless Puppet::Parser::Functions.function(@name)
-
-      # Now check that it's been used correctly
-      case @ftype
-      when :rvalue
-        raise Puppet::ParseError, "Function '#{@name}' does not return a value" unless Puppet::Parser::Functions.rvalue?(@name)
-      when :statement
-        if Puppet::Parser::Functions.rvalue?(@name)
-          raise Puppet::ParseError,
-            "Function '#{@name}' must be the value of a statement"
+      if @name.include?('.')
+        receivers, method = @name.split('.', 2)
+        receiver = receivers.split('::').inject(Kernel) do |parent,const|
+          next parent if const.empty?
+          parent.const_get(const)
         end
       else
-        raise Puppet::DevError, "Invalid function type #{@ftype.inspect}"
+        method = "function_#{@name}"
+
+        # Make sure it's a defined function
+        raise Puppet::ParseError, "Unknown function #{@name}" unless Puppet::Parser::Functions.function(@name)
+
+        # Now check that it's been used correctly
+        case @ftype
+        when :rvalue
+          raise Puppet::ParseError, "Function '#{@name}' does not return a value" unless Puppet::Parser::Functions.rvalue?(@name)
+        when :statement
+          if Puppet::Parser::Functions.rvalue?(@name)
+            raise Puppet::ParseError,
+              "Function '#{@name}' must be the value of a statement"
+          end
+        else
+          raise Puppet::DevError, "Invalid function type #{@ftype.inspect}"
+        end
       end
 
       # We don't need to evaluate the name, because it's plaintext
       args = @arguments.safeevaluate(scope).map { |x| x == :undef ? '' : x }
 
-      scope.send("function_#{@name}", args)
+      if receiver
+        receiver.send(method, *args)
+      else
+        scope.send(method, args)
+      end
     end
 
     def initialize(hash)

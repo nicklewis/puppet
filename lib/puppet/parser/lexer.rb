@@ -153,6 +153,7 @@ class Puppet::Parser::Lexer
       '=~' => :MATCH,
       '!~' => :NOMATCH,
       %r{((::){0,1}[A-Z][-\w]*)+} => :CLASSREF,
+      /(?:::)?(?:[A-Z]\w+::)*[A-Z]\w+\.[a-zA-Z_]\w*/ => :RUBY_FUNC,
       "<string>" => :STRING,
       "<dqstring up to first interpolation>" => :DQPRE,
       "<dqstring between two interpolations>" => :DQMID,
