@@ -7,6 +7,8 @@ class Puppet::Parser::AST::ParameterLookup < Puppet::Parser::AST::Branch
   def evaluate(scope)
     real_resources = [resource.evaluate(scope)].flatten
 
+    real_resources = real_resources.map {|r| r.is_a?(Puppet::Parser::Collector) ? r.evaluate : r}.flatten.reject {|r| r == false}
+
     invalid_resources = real_resources.select {|r| !r.is_a? Puppet::Resource}
     if invalid_resources.any?
       raise Puppet::ParseError, "Parameter lookup must be on a Puppet::Resource, not #{invalid_resources.first.class}"

@@ -180,6 +180,7 @@ rvalue:       quotedtext
   | hasharrayaccesses
   | parameterlookup
   | resourceref
+  | collection
   | funcrvalue
   | undef
 
@@ -225,25 +226,25 @@ at:   AT { result = :virtual }
 
 # A collection statement.  Currently supports no arguments at all, but eventually
 # will, I assume.
-collection:     type collectrhand LBRACE anyparams endcomma RBRACE {
-  @lexer.commentpop
-  type = val[0].value.downcase
-  args = {:type => type}
-
-  if val[1].is_a?(AST::CollExpr)
-    args[:query] = val[1]
-    args[:query].type = type
-    args[:form] = args[:query].form
-  else
-    args[:form] = val[1]
-  end
-  if args[:form] == :exported and ! Puppet[:storeconfigs]
-    Puppet.warning addcontext("You cannot collect exported resources without storeconfigs being set; the collection will be ignored")
-  end
-  args[:override] = val[3]
-  result = ast AST::Collection, args
-}
-  | type collectrhand {
+#collection:     type collectrhand LBRACE anyparams endcomma RBRACE {
+#  @lexer.commentpop
+#  type = val[0].value.downcase
+#  args = {:type => type}
+#
+#  if val[1].is_a?(AST::CollExpr)
+#    args[:query] = val[1]
+#    args[:query].type = type
+#    args[:form] = args[:query].form
+#  else
+#    args[:form] = val[1]
+#  end
+#  if args[:form] == :exported and ! Puppet[:storeconfigs]
+#    Puppet.warning addcontext("You cannot collect exported resources without storeconfigs being set; the collection will be ignored")
+#  end
+#  args[:override] = val[3]
+#  result = ast AST::Collection, args
+#}
+collection: type collectrhand {
   type = val[0].value.downcase
   args = {:type => type }
 
