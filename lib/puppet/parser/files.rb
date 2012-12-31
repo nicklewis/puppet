@@ -18,13 +18,13 @@ module Puppet::Parser::Files
     module_name, pattern = split_file_path(start)
     begin
       if mod = Puppet::Module.find(module_name, options[:environment])
-        return [mod.name, mod.match_manifests(pattern)]
+        return [mod, mod.match_manifests(pattern)]
       end
     rescue Puppet::Module::InvalidName
       # Than that would be a "no."
     end
     abspat = File::expand_path(start, cwd)
-    [nil, Dir.glob(abspat + (File.extname(abspat).empty? ? '{.pp,.rb}' : '' )).uniq.reject { |f| FileTest.directory?(f) }]
+    [Puppet::Module::NullModule, Dir.glob(abspat + (File.extname(abspat).empty? ? '{.pp,.rb}' : '' )).uniq.reject { |f| FileTest.directory?(f) }]
   end
 
   # Find the concrete file denoted by +file+. If +file+ is absolute,

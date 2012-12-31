@@ -9,9 +9,9 @@ class Puppet::Parser::AST::Node < Puppet::Parser::AST::TopLevelConstruct
     @context = context
   end
 
-  def instantiate(modname)
+  def instantiate(mod)
     @names.collect do |name|
-      Puppet::Resource::Type.new(:node, name, @context.merge(:module_name => modname))
+      Puppet::Resource::Type.new(:node, name, @context.merge(:module_name => mod.name))
     end
   end
 end

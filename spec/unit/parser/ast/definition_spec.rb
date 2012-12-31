@@ -10,7 +10,8 @@ describe Puppet::Parser::AST::Definition do
   describe "when instantiated" do
     it "should create a definition with the proper type, name, context, and module name" do
       definition = Puppet::Parser::AST::Definition.new('foo', :line => 5)
-      instantiated_definitions = definition.instantiate('modname')
+      mod = Puppet::Module.new('modname', nil, Puppet::Node::Environment.current)
+      instantiated_definitions = definition.instantiate(mod)
       instantiated_definitions.length.should == 1
       instantiated_definitions[0].type.should == :definition
       instantiated_definitions[0].name.should == 'foo'

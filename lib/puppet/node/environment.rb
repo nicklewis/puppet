@@ -84,7 +84,7 @@ class Puppet::Node::Environment
     Thread.current[:known_resource_types] ||= synchronize {
       if @known_resource_types.nil? or @known_resource_types.require_reparse?
         @known_resource_types = Puppet::Resource::TypeCollection.new(self)
-        @known_resource_types.import_ast(perform_initial_import, '')
+        @known_resource_types.import_ast(perform_initial_import, Puppet::Module::NullModule)
       end
       @known_resource_types
     }

@@ -86,7 +86,7 @@ describe Puppet::Parser::Parser do
 
       ast.code[0].should be_a(Puppet::Parser::AST::Hostclass)
       ast.code[0].name.should == 'test'
-      ast.code[0].instantiate('')[0].doc.should == "comment\n"
+      ast.code[0].instantiate(Puppet::Module::NullModule)[0].doc.should == "comment\n"
     end
   end
 

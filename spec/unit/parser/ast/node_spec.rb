@@ -3,6 +3,8 @@ require 'spec_helper'
 
 describe Puppet::Parser::AST::Node do
   describe "when instantiated" do
+    let(:mod) { Puppet::Module.new('modname', nil, Puppet::Node::Environment.current) }
+
     it "should make its names and context available through accessors" do
       node = Puppet::Parser::AST::Node.new(['foo', 'bar'], :line => 5)
       node.names.should == ['foo', 'bar']
@@ -11,7 +13,7 @@ describe Puppet::Parser::AST::Node do
 
     it "should create a node with the proper type, name, context, and module name" do
       node = Puppet::Parser::AST::Node.new(['foo'], :line => 5)
-      instantiated_nodes = node.instantiate('modname')
+      instantiated_nodes = node.instantiate(mod)
       instantiated_nodes.length.should == 1
       instantiated_nodes[0].type.should == :node
       instantiated_nodes[0].name.should == 'foo'
@@ -21,7 +23,7 @@ describe Puppet::Parser::AST::Node do
 
     it "should handle multiple names" do
       node = Puppet::Parser::AST::Node.new(['foo', 'bar'])
-      instantiated_nodes = node.instantiate('modname')
+      instantiated_nodes = node.instantiate(mod)
       instantiated_nodes.length.should == 2
       instantiated_nodes[0].name.should == 'foo'
       instantiated_nodes[1].name.should == 'bar'

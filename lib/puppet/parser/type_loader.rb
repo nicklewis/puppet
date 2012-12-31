@@ -78,7 +78,7 @@ class Puppet::Parser::TypeLoader
     end
 
     pat = file
-    modname, files = Puppet::Parser::Files.find_manifests(pat, :cwd => dir, :environment => environment)
+    mod, files = Puppet::Parser::Files.find_manifests(pat, :cwd => dir, :environment => environment)
     if files.size == 0
       raise Puppet::ImportError.new("No file(s) found for import of '#{pat}'")
     end
@@ -113,7 +113,7 @@ class Puppet::Parser::TypeLoader
     end
 
     loaded_puppet_types = loaded_asts.inject([]) do |loaded_types, ast|
-      loaded_types + known_resource_types.import_ast(ast, modname)
+      loaded_types + known_resource_types.import_ast(ast, mod)
     end
     loaded_ruby_types + loaded_puppet_types
   end

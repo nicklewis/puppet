@@ -289,4 +289,10 @@ class Puppet::Module
     self.path == other.path &&
     self.environment == other.environment
   end
+
+  # We use the NullModule when talking about the module a resource is in, in
+  # the case where a resource isn't actually in a module. For that reason, the
+  # environment doesn't actually matter, but we need to have one, so we use
+  # root, which will always exist and will always be the same.
+  NullModule = Puppet::Module.new('null', nil, Puppet::Node::Environment.root)
 end

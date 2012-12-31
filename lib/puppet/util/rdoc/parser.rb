@@ -46,7 +46,7 @@ class Parser
       if @input_file_name =~ /\.pp$/
         @parser = Puppet::Parser::Parser.new(environment)
         @parser.file = @input_file_name
-        @parser.parse.instantiate('').each do |type|
+        @parser.parse.instantiate(Puppet::Module::NullModule).each do |type|
           @known_resource_types.add type
         end
       end

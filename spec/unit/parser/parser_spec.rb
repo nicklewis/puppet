@@ -86,11 +86,11 @@ describe Puppet::Parser do
       Puppet::Parser::AST::Not.expects(:new).with { |h| h[:value].is_a?(Puppet::Parser::AST::Boolean) }
       @parser.parse("unless false { $var = 1 }")
     end
-    
+
     it "should not raise an error with empty statements" do
       expect { @parser.parse("unless false { }") }.to_not raise_error
     end
-    
+
     #test for bug #13296
     it "should not override 'unless' as a parameter inside resources" do
       lambda { @parser.parse("exec {'/bin/echo foo': unless => '/usr/bin/false',}") }.should_not raise_error
@@ -386,13 +386,13 @@ describe Puppet::Parser do
     end
 
     it "should correctly set the parent class when one is provided" do
-      @parser.parse("class foobar inherits yayness {}").code[0].instantiate('')[0].parent.should == "yayness"
+      @parser.parse("class foobar inherits yayness {}").code[0].instantiate(Puppet::Module::NullModule)[0].parent.should == "yayness"
     end
 
     it "should correctly set the parent class for multiple classes at a time" do
       statements = @parser.parse("class foobar inherits yayness {}\nclass boo inherits bar {}").code
-      statements[0].instantiate('')[0].parent.should == "yayness"
-      statements[1].instantiate('')[0].parent.should == "bar"
+      statements[0].instantiate(Puppet::Module::NullModule)[0].parent.should == "yayness"
+      statements[1].instantiate(Puppet::Module::NullModule)[0].parent.should == "bar"
     end
 
     it "should define the code when some is provided" do
@@ -408,7 +408,7 @@ describe Puppet::Parser do
     end
 
     it "should define parameters when provided" do
-      foobar = @parser.parse("class foobar($biz,$baz) {}").code[0].instantiate('')[0]
+      foobar = @parser.parse("class foobar($biz,$baz) {}").code[0].instantiate(Puppet::Module::NullModule)[0]
       foobar.arguments.should == {"biz" => nil, "baz" => nil}
     end
   end
@@ -502,13 +502,13 @@ describe Puppet::Parser do
   end
 
   it "should treat classes as case insensitive" do
-    @parser.known_resource_types.import_ast(@parser.parse("class yayness {}"), '')
+    @parser.known_resource_types.import_ast(@parser.parse("class yayness {}"), Puppet::Module::NullModule)
     @parser.known_resource_types.hostclass('yayness').
       should == @parser.find_hostclass("", "YayNess")
   end
 
   it "should treat defines as case insensitive" do
-    @parser.known_resource_types.import_ast(@parser.parse("define funtest {}"), '')
+    @parser.known_resource_types.import_ast(@parser.parse("define funtest {}"), Puppet::Module::NullModule)
     @parser.known_resource_types.hostclass('funtest').
       should == @parser.find_hostclass("", "fUntEst")
   end

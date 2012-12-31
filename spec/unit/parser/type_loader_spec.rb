@@ -40,8 +40,10 @@ describe Puppet::Parser::TypeLoader do
   end
 
   describe "when importing" do
+    let(:mod) { Puppet::Module.new("modname", nil, Puppet::Node::Environment.current) }
+
     before do
-      Puppet::Parser::Files.stubs(:find_manifests).returns ["modname", %w{file}]
+      Puppet::Parser::Files.stubs(:find_manifests).returns [mod, %w{file}]
       Puppet::Parser::Parser.any_instance.stubs(:parse).returns(Puppet::Parser::AST::Hostclass.new(''))
       Puppet::Parser::Parser.any_instance.stubs(:file=)
     end
@@ -53,39 +55,39 @@ describe Puppet::Parser::TypeLoader do
     end
 
     it "should find all manifests matching the file or pattern" do
-      Puppet::Parser::Files.expects(:find_manifests).with { |pat, opts| pat == "myfile" }.returns ["modname", %w{one}]
+      Puppet::Parser::Files.expects(:find_manifests).with { |pat, opts| pat == "myfile" }.returns [mod, %w{one}]
       @loader.import("myfile")
     end
 
     it "should use the directory of the current file if one is set" do
-      Puppet::Parser::Files.expects(:find_manifests).with { |pat, opts| opts[:cwd] == make_absolute("/current") }.returns ["modname", %w{one}]
+      Puppet::Parser::Files.expects(:find_manifests).with { |pat, opts| opts[:cwd] == make_absolute("/current") }.returns [mod, %w{one}]
       @loader.import("myfile", make_absolute("/current/file"))
     end
 
     it "should pass the environment when looking for files" do
-      Puppet::Parser::Files.expects(:find_manifests).with { |pat, opts| opts[:environment] == @loader.environment }.returns ["modname", %w{one}]
+      Puppet::Parser::Files.expects(:find_manifests).with { |pat, opts| opts[:environment] == @loader.environment }.returns [mod, %w{one}]
       @loader.import("myfile")
     end
 
     it "should fail if no files are found" do
-      Puppet::Parser::Files.expects(:find_manifests).returns [nil, []]
+      Puppet::Parser::Files.expects(:find_manifests).returns [Puppet::Module::NullModule, []]
       lambda { @loader.import("myfile") }.should raise_error(Puppet::ImportError)
     end
 
     it "should parse each found file" do
-      Puppet::Parser::Files.expects(:find_manifests).returns ["modname", [make_absolute("/one")]]
+      Puppet::Parser::Files.expects(:find_manifests).returns [mod, [make_absolute("/one")]]
       @loader.expects(:parse_file).with(make_absolute("/one")).returns(Puppet::Parser::AST::Hostclass.new(''))
       @loader.import("myfile")
     end
 
     it "should make each file qualified before attempting to parse it" do
-      Puppet::Parser::Files.expects(:find_manifests).returns ["modname", %w{one}]
+      Puppet::Parser::Files.expects(:find_manifests).returns [mod, %w{one}]
       @loader.expects(:parse_file).with(make_absolute("/current/one")).returns(Puppet::Parser::AST::Hostclass.new(''))
       @loader.import("myfile", make_absolute("/current/file"))
     end
 
     it "should not attempt to import files that have already been imported" do
-      Puppet::Parser::Files.expects(:find_manifests).returns ["modname", %w{/one}]
+      Puppet::Parser::Files.expects(:find_manifests).returns [mod, %w{/one}]
       Puppet::Parser::Parser.any_instance.expects(:parse).once.returns(Puppet::Parser::AST::Hostclass.new(''))
       @loader.import("myfile")
 
@@ -94,7 +96,7 @@ describe Puppet::Parser::TypeLoader do
     end
 
     it "checks the type of DSL to import" do
-      Puppet::Parser::Files.expects(:find_manifests).returns ["modname", [make_absolute("/one")]]
+      Puppet::Parser::Files.expects(:find_manifests).returns [mod, [make_absolute("/one")]]
       Puppet::Util::ManifestFiletypeHelper.expects(:is_ruby_filename?).at_least_once.returns false
 
       @loader.import("myfile")
@@ -102,7 +104,7 @@ describe Puppet::Parser::TypeLoader do
 
     it "evaluates loaded Ruby code" do
       File.stubs(:read).returns("hostclass(:asdf) {}")
-      Puppet::Parser::Files.stubs(:find_manifests).returns ["modname", [make_absolute("/one.rb")]]
+      Puppet::Parser::Files.stubs(:find_manifests).returns [mod, [make_absolute("/one.rb")]]
 
       @loader.import("myfile").map(&:name).should include "asdf"
     end

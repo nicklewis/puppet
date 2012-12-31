@@ -147,10 +147,10 @@ describe Puppet::Parser::Files do
       Puppet::Parser::Files.find_manifests(file)
     end
 
-    it "should return nil and an array of fully qualified files" do
+    it "should return the NullModule and an array of fully qualified files" do
       file = @basepath + "/fully/qualified/file.pp"
       Dir.stubs(:glob).with(file).returns([file])
-      Puppet::Parser::Files.find_manifests(file).should == [nil, [file]]
+      Puppet::Parser::Files.find_manifests(file).should == [Puppet::Module::NullModule, [file]]
     end
 
     it "should match against provided fully qualified patterns" do
@@ -191,26 +191,27 @@ describe Puppet::Parser::Files do
       mod = Puppet::Module.new(name, "/one/#{name}", env)
       env.stubs(:module).with(name).returns mod
       mod.stubs(:match_manifests).with("init.pp").returns(["/one/#{name}/manifests/init.pp"])
+      mod
     end
 
     it "should return the name of the module and the manifests from the first found module" do
-      a_module_in_environment(Puppet::Node::Environment.new, "mymod")
+      mod = a_module_in_environment(Puppet::Node::Environment.new, "mymod")
 
       Puppet::Parser::Files.find_manifests("mymod/init.pp").should ==
-        ["mymod", ["/one/mymod/manifests/init.pp"]]
+        [mod, ["/one/mymod/manifests/init.pp"]]
     end
 
     it "should use the node environment if specified" do
-      a_module_in_environment(Puppet::Node::Environment.new("myenv"), "mymod")
+      mod = a_module_in_environment(Puppet::Node::Environment.new("myenv"), "mymod")
 
       Puppet::Parser::Files.find_manifests("mymod/init.pp", :environment => "myenv").should ==
-        ["mymod", ["/one/mymod/manifests/init.pp"]]
+        [mod, ["/one/mymod/manifests/init.pp"]]
     end
 
     it "does not find the module when it is a different environment" do
-      a_module_in_environment(Puppet::Node::Environment.new("myenv"), "mymod")
+      mod = a_module_in_environment(Puppet::Node::Environment.new("myenv"), "mymod")
 
-      Puppet::Parser::Files.find_manifests("mymod/init.pp", :environment => "different").should_not include("mymod")
+      Puppet::Parser::Files.find_manifests("mymod/init.pp", :environment => "different").first.should_not == mod
     end
   end
 end

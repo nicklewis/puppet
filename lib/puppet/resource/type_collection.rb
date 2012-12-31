@@ -25,8 +25,8 @@ class Puppet::Resource::TypeCollection
     @watched_files = {}
   end
 
-  def import_ast(ast, modname)
-    ast.instantiate(modname).each do |instance|
+  def import_ast(ast, mod)
+    ast.instantiate(mod).each do |instance|
       add(instance)
     end
   end
