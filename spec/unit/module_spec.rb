@@ -7,7 +7,7 @@ require 'puppet/module_tool/checksums'
 describe Puppet::Module do
   include PuppetSpec::Files
 
-  let(:env) { mock("environment") }
+  let(:env) { Puppet::Node::Environment.new }
   let(:path) { "path" }
   let(:name) { "mymod" }
   let(:mod) { Puppet::Module.new(name, path, env) }
@@ -19,19 +19,19 @@ describe Puppet::Module do
   end
 
   it "should have a class method that returns a named module from a given environment" do
-    env = mock 'module'
-    env.expects(:module).with(name).returns "yep"
-    Puppet::Node::Environment.expects(:new).with("myenv").returns env
+    env.expects(:module).with(name).returns mod
 
-    Puppet::Module.find(name, "myenv").should == "yep"
+    Puppet::Module.find(name, env).should == mod
   end
 
   it "should return nil if asked for a named module that doesn't exist" do
-    env = mock 'module'
-    env.expects(:module).with(name).returns nil
-    Puppet::Node::Environment.expects(:new).with("myenv").returns env
-
     Puppet::Module.find(name, "myenv").should be_nil
+  end
+
+  it "should issue a deprecation warning" do
+    Puppet.expects(:deprecation_warning).with {|msg| msg =~ /Puppet::Module.find is deprecated; please use Environment#module instead./}
+
+    Puppet::Module.find('foo')
   end
 
   describe "attributes" do

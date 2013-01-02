@@ -168,17 +168,25 @@ describe Puppet::Node::Environment do
       mod.name.should == 'one'
     end
 
-    it "should not return a module if the module doesn't exist" do
+    it "should return NullModule if the module doesn't exist" do
       env.stubs(:modules).returns [Puppet::Module.new('one', "/one", mock("env"))]
 
-      env.module('two').should be_nil
+      env.module('two').should be_null_module
     end
 
-    it "should return nil if asked for a module that does not exist in its path" do
+    it "should return NullModule if asked for a module that does not exist in its path" do
       modpath = tmpdir('modpath')
       env.modulepath = [modpath]
 
-      env.module("one").should be_nil
+      env.module("one").should be_null_module
+    end
+
+    it "should fail if asked to find empty string" do
+      expect { env.module('') }.to raise_error(Puppet::DevError, /Can't lookup a module without a name/)
+    end
+
+    it "should fail if asked to find nil" do
+      expect { env.module(nil) }.to raise_error(Puppet::DevError, /Can't lookup a module without a name/)
     end
 
     describe "module data" do

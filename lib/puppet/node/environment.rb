@@ -102,7 +102,8 @@ class Puppet::Node::Environment
   end
 
   def module(name)
-    modules.find {|mod| mod.name == name}
+    raise Puppet::DevError, "Can't lookup a module without a name" if name.nil? or name.to_s.strip.empty?
+    modules.find {|mod| mod.name == name} || Puppet::Module::NullModule
   end
 
   def module_by_forge_name(forge_name)

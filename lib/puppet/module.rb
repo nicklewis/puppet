@@ -25,8 +25,11 @@ class Puppet::Module
   # absolute, or if there is no module whose name is the first component
   # of +path+, return +nil+
   def self.find(modname, environment = nil)
+    Puppet.deprecation_warning "Puppet::Module.find is deprecated; please use Environment#module instead."
     return nil unless modname
-    Puppet::Node::Environment.new(environment).module(modname)
+    mod = Puppet::Node::Environment.new(environment).module(modname)
+    # For backward compatibility, we return nil instead of NullModule
+    mod.null_module? ? nil : mod
   end
 
   attr_reader :name, :environment, :path
@@ -45,6 +48,10 @@ class Puppet::Module
     load_metadata if has_metadata?
 
     validate_puppet_version
+  end
+
+  def null_module?
+    self == Puppet::Module::NullModule
   end
 
   def has_metadata?
@@ -273,6 +280,13 @@ class Puppet::Module
     raise IncompatibleModule, "Module #{self.name} is only compatible with Puppet version #{puppetversion}, not #{Puppet.version}"
   end
 
+  def ==(other)
+    self.name == other.name &&
+    self.version == other.version &&
+    self.path == other.path &&
+    self.environment == other.environment
+  end
+
   private
 
   def subpath(type)
@@ -281,13 +295,6 @@ class Puppet::Module
 
   def assert_validity
     raise InvalidName, "Invalid module name #{name}; module names must be alphanumeric (plus '-'), not '#{name}'" unless name =~ /^[-\w]+$/
-  end
-
-  def ==(other)
-    self.name == other.name &&
-    self.version == other.version &&
-    self.path == other.path &&
-    self.environment == other.environment
   end
 
   # We use the NullModule when talking about the module a resource is in, in
