@@ -161,11 +161,6 @@ class Puppet::Module
     subpath("lib")
   end
 
-  def supports(name, version = nil)
-    @supports ||= []
-    @supports << [name, version]
-  end
-
   def to_s
     result = "Module #{name}"
     result += "(#{path})" if path

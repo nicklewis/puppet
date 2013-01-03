@@ -316,16 +316,6 @@ describe Puppet::Module do
     end
   end
 
-  describe "when managing supported platforms" do
-    it "should support specifying a supported platform" do
-      mod.supports "solaris"
-    end
-
-    it "should support specifying a supported platform and version" do
-      mod.supports "solaris", 1.0
-    end
-  end
-
   it "should return nil if asked for a module whose name is 'nil'" do
     Puppet::Module.find(nil, "myenv").should be_nil
   end
