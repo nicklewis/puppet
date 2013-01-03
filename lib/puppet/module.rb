@@ -173,14 +173,10 @@ class Puppet::Module
   end
 
   def dependencies_as_modules
-    dependent_modules = []
-    dependencies and dependencies.each do |dep|
+    Array(dependencies).map do |dep|
       author, dep_name = dep["name"].split('/')
-      found_module = environment.module(dep_name)
-      dependent_modules << found_module if found_module
-    end
-
-    dependent_modules
+      environment.module(dep_name)
+    end.reject(&:null_module?)
   end
 
   def required_by

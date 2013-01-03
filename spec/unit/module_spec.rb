@@ -618,6 +618,43 @@ describe Puppet::Module do
     end
   end
 
+  describe "#dependencies_as_modules" do
+    let(:env) { Puppet::Node::Environment.new }
+    let(:mod) { Puppet::Module.new('mymod', nil, env) }
+    let!(:dep1) { Puppet::Module.new('dep1', nil, env) }
+    let!(:dep2) { Puppet::Module.new('dep2', nil, env) }
+
+    before :each do
+      mod.dependencies = [{'name' => 'author/dep1', 'version_requirement' => '= 1.0.0'},
+                          {'name' => 'author/dep2', 'version_requirement' => '= 2.0.0'}]
+    end
+
+    it "should return a list of module instances representing the dependencies" do
+      env.stubs(:modules).returns [dep1, dep2]
+
+      mod.dependencies_as_modules.should == [dep1, dep2]
+    end
+
+    it "should not contain entries for missing modules" do
+      env.stubs(:modules).returns [dep1]
+
+      mod.dependencies_as_modules.should == [dep1]
+    end
+
+    it "should not include modules which only exist in other environments" do
+      env.stubs(:modules).returns [dep1]
+      Puppet::Node::Environment.new('another_environment').stubs(:modules).returns [dep1, dep2]
+
+      mod.dependencies_as_modules.should == [dep1]
+    end
+
+    it "should return an empty list if there is no dependency metadata" do
+      mod.dependencies = nil
+
+      mod.dependencies_as_modules.should == []
+    end
+  end
+
   it "should know what other modules require it" do
     Puppet.settings[:modulepath] = @modpath
     dependable = PuppetSpec::Modules.create(
