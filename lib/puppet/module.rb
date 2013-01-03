@@ -51,7 +51,7 @@ class Puppet::Module
   end
 
   def null_module?
-    self == Puppet::Module::NullModule
+    false
   end
 
   def has_metadata?
@@ -138,7 +138,7 @@ class Puppet::Module
 
   # Return the list of manifests matching the given glob pattern,
   # defaulting to 'init.{pp,rb}' for empty modules.
-  def match_manifests(rest)
+  def match_manifests(rest, cwd=nil)
     pat = File.join(path, "manifests", rest || 'init')
     [manifest("init.pp"),manifest("init.rb")].compact + Dir.
       glob(pat + (File.extname(pat).empty? ? '.{pp,rb}' : '')).
@@ -296,10 +296,6 @@ class Puppet::Module
   def assert_validity
     raise InvalidName, "Invalid module name #{name}; module names must be alphanumeric (plus '-'), not '#{name}'" unless name =~ /^[-\w]+$/
   end
-
-  # We use the NullModule when talking about the module a resource is in, in
-  # the case where a resource isn't actually in a module. For that reason, the
-  # environment doesn't actually matter, but we need to have one, so we use
-  # root, which will always exist and will always be the same.
-  NullModule = Puppet::Module.new('null', nil, Puppet::Node::Environment.root)
 end
+
+require 'puppet/module/null_module'

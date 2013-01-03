@@ -60,7 +60,7 @@ module Puppet::Util::RDoc
   # of a manifest
   def output(file, ast)
     astobj = []
-    ast.instantiate(Puppet::Module::NullModule).each do |resource_type|
+    ast.instantiate(Puppet::Module::NullModule.instance).each do |resource_type|
       astobj << resource_type if resource_type.file == file
     end
 

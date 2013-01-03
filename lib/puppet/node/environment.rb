@@ -84,7 +84,7 @@ class Puppet::Node::Environment
     Thread.current[:known_resource_types] ||= synchronize {
       if @known_resource_types.nil? or @known_resource_types.require_reparse?
         @known_resource_types = Puppet::Resource::TypeCollection.new(self)
-        @known_resource_types.import_ast(perform_initial_import, Puppet::Module::NullModule)
+        @known_resource_types.import_ast(perform_initial_import, Puppet::Module::NullModule.instance)
       end
       @known_resource_types
     }
@@ -103,7 +103,7 @@ class Puppet::Node::Environment
 
   def module(name)
     raise Puppet::DevError, "Can't lookup a module without a name" if name.nil? or name.to_s.strip.empty?
-    modules.find {|mod| mod.name == name} || Puppet::Module::NullModule
+    modules.find {|mod| mod.name == name} || Puppet::Module::NullModule.instance
   end
 
   def module_by_forge_name(forge_name)

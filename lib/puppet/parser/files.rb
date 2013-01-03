@@ -16,15 +16,12 @@ module Puppet::Parser::Files
   def find_manifests(start, options = {})
     cwd = options[:cwd] || Dir.getwd
     module_name, pattern = split_file_path(start)
-    begin
-      if mod = Puppet::Module.find(module_name, options[:environment])
-        return [mod, mod.match_manifests(pattern)]
-      end
-    rescue Puppet::Module::InvalidName
-      # Than that would be a "no."
-    end
-    abspat = File::expand_path(start, cwd)
-    [Puppet::Module::NullModule, Dir.glob(abspat + (File.extname(abspat).empty? ? '{.pp,.rb}' : '' )).uniq.reject { |f| FileTest.directory?(f) }]
+    mod = module_name ? Puppet::Node::Environment.new(options[:environment]).module(module_name) : Puppet::Module::NullModule.instance
+
+    # If there isn't a module, we look for the whole original path
+    pattern = start if mod.null_module?
+
+    [mod, mod.match_manifests(pattern, cwd)]
   end
 
   # Find the concrete file denoted by +file+. If +file+ is absolute,
@@ -63,10 +60,7 @@ module Puppet::Parser::Files
     # directory.
     return nil unless file
 
-    if mod = Puppet::Module.find(path, environment) and t = mod.template(file)
-      return t
-    end
-    nil
+    Puppet::Node::Environment.new(environment).module(path).template(file)
   end
 
   # Return an array of paths by splitting the +templatedir+ config
@@ -82,7 +76,13 @@ module Puppet::Parser::Files
   # nil if the path is empty or absolute (starts with a /).
   # This method can return nil & anyone calling it needs to handle that.
   def split_file_path(path)
-    path.split(File::SEPARATOR, 2) unless path == "" or Puppet::Util.absolute_path?(path)
+    if path.empty? or Puppet::Util.absolute_path?(path)
+      [nil, path]
+    else
+      mod, relative_path = path.split(File::SEPARATOR, 2)
+      relative_path ||= ''
+      mod = nil if mod.empty?
+      [mod, relative_path]
+    end
   end
-
 end
