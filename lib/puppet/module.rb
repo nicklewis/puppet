@@ -33,9 +33,9 @@ class Puppet::Module
   end
 
   attr_reader :name, :environment, :path
-  attr_writer :environment
+  attr_writer :environment, :dependencies
 
-  attr_accessor :dependencies, :forge_name
+  attr_accessor :forge_name
   attr_accessor :source, :author, :version, :license, :puppetversion, :summary, :description, :project_page
 
   def initialize(name, path, environment)
@@ -136,6 +136,10 @@ class Puppet::Module
     end
   end
 
+  def dependencies
+    @dependencies ||= []
+  end
+
   # Return the list of manifests matching the given glob pattern,
   # defaulting to 'init.{pp,rb}' for empty modules.
   def match_manifests(rest, cwd=nil)
@@ -168,7 +172,7 @@ class Puppet::Module
   end
 
   def dependencies_as_modules
-    Array(dependencies).map do |dep|
+    dependencies.map do |dep|
       author, dep_name = dep["name"].split('/')
       environment.module(dep_name)
     end.reject(&:null_module?)
@@ -215,17 +219,12 @@ class Puppet::Module
   #
   def unmet_dependencies
     unmet_dependencies = []
-    return unmet_dependencies unless dependencies
 
     dependencies.each do |dependency|
       forge_name = dependency['name']
       version_string = dependency['version_requirement'] || '>= 0.0.0'
 
-      dep_mod = begin
-        environment.module_by_forge_name(forge_name)
-      rescue => e
-        nil
-      end
+      dep_mod = environment.module_by_forge_name(forge_name)
 
       error_details = {
         :name => forge_name,
@@ -235,11 +234,11 @@ class Puppet::Module
           :version => self.version.gsub(/^(?=\d)/, "v")
         },
         :mod_details => {
-          :installed_version => dep_mod.nil? ? nil : dep_mod.version
+          :installed_version => dep_mod.version
         }
       }
 
-      unless dep_mod
+      if dep_mod.null_module?
         error_details[:reason] = :missing
         unmet_dependencies << error_details
         next

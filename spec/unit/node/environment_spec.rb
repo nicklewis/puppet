@@ -315,18 +315,18 @@ describe Puppet::Node::Environment do
           env.module_by_forge_name('puppetlabs/baz').should == mod
         end
 
-        it "should not find modules with same name by the wrong author" do
+        it "should return NullModule if the module has the same name but the wrong author" do
           mod = PuppetSpec::Modules.create(
             'baz',
             @first,
             :metadata => {:author => 'sneakylabs'},
             :environment => env
           )
-          env.module_by_forge_name('puppetlabs/baz').should == nil
+          env.module_by_forge_name('puppetlabs/baz').should be_null_module
         end
 
-        it "should return nil when the module can't be found" do
-          env.module_by_forge_name('ima/nothere').should be_nil
+        it "should return NullModule when the module can't be found" do
+          env.module_by_forge_name('ima/nothere').should be_null_module
         end
       end
 

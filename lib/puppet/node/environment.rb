@@ -109,9 +109,7 @@ class Puppet::Node::Environment
   def module_by_forge_name(forge_name)
     author, modname = forge_name.split('/')
     found_mod = self.module(modname)
-    found_mod and found_mod.forge_name == forge_name ?
-      found_mod :
-      nil
+    found_mod.forge_name == forge_name ? found_mod : Puppet::Module::NullModule.instance
   end
 
   # Cache the modulepath, so that we aren't searching through
@@ -177,7 +175,7 @@ class Puppet::Node::Environment
     modules.each do |mod|
       next unless mod.forge_name
       deps[mod.forge_name] ||= []
-      mod.dependencies and mod.dependencies.each do |mod_dep|
+      Array(mod.dependencies).each do |mod_dep|
         deps[mod_dep['name']] ||= []
         dep_details = {
           'name'                => mod.forge_name,

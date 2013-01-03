@@ -13,6 +13,14 @@ class Puppet::Module::NullModule < Puppet::Module
     true
   end
 
+  def version
+    nil
+  end
+
+  def dependencies
+    []
+  end
+
   def match_manifests(path, cwd)
     glob = File.expand_path(path, cwd)
     # If they didn't give us an extension, we assume they want any kind of
