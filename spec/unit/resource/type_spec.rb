@@ -235,20 +235,21 @@ describe Puppet::Resource::Type do
   end
 
   describe "when setting its parameters in the scope" do
-    before do
-      @scope = Puppet::Parser::Scope.new(Puppet::Parser::Compiler.new(Puppet::Node.new("foo")), :source => stub("source"))
-      @resource = Puppet::Parser::Resource.new(:foo, "bar", :scope => @scope)
-      @type = Puppet::Resource::Type.new(:definition, "foo")
-      @resource.environment.known_resource_types.add @type
+    let(:scope) { Puppet::Parser::Scope.new(Puppet::Parser::Compiler.new(Puppet::Node.new("foo")), :source => stub("source")) }
+    let(:resource) { Puppet::Parser::Resource.new(:foo, "bar", :scope => scope) }
+    let(:type) do
+      mod = Puppet::Module.new('bar', nil, resource.environment)
+      type = Puppet::Resource::Type.new(:definition, "foo", :module => mod)
+      resource.environment.known_resource_types.add(type)
+      type
     end
 
     ['module_name', 'name', 'title'].each do |variable|
       it "should allow #{variable} to be evaluated as param default" do
-        @type.instance_eval { @module_name = "bar" }
         var = Puppet::Parser::AST::Variable.new({'value' => variable})
-        @type.set_arguments :foo => var
-        @type.set_resource_parameters(@resource, @scope)
-        @scope['foo'].should == 'bar'
+        type.set_arguments :foo => var
+        type.set_resource_parameters(resource, scope)
+        scope['foo'].should == 'bar'
       end
     end
 
@@ -256,87 +257,86 @@ describe Puppet::Resource::Type do
     # if you specify these special names as params, the resource
     # will override the special variables
     it "should allow the resource to override defaults" do
-      @type.set_arguments :name => nil
-      @resource[:name] = 'foobar'
+      type.set_arguments :name => nil
+      resource[:name] = 'foobar'
       var = Puppet::Parser::AST::Variable.new({'value' => 'name'})
-      @type.set_arguments :foo => var
-      @type.set_resource_parameters(@resource, @scope)
-      @scope['foo'].should == 'foobar'
+      type.set_arguments :foo => var
+      type.set_resource_parameters(resource, scope)
+      scope['foo'].should == 'foobar'
     end
 
     it "should set each of the resource's parameters as variables in the scope" do
-      @type.set_arguments :foo => nil, :boo => nil
-      @resource[:foo] = "bar"
-      @resource[:boo] = "baz"
+      type.set_arguments :foo => nil, :boo => nil
+      resource[:foo] = "bar"
+      resource[:boo] = "baz"
 
-      @type.set_resource_parameters(@resource, @scope)
+      type.set_resource_parameters(resource, scope)
 
-      @scope['foo'].should == "bar"
-      @scope['boo'].should == "baz"
+      scope['foo'].should == "bar"
+      scope['boo'].should == "baz"
     end
 
     it "should set the variables as strings" do
-      @type.set_arguments :foo => nil
-      @resource[:foo] = "bar"
+      type.set_arguments :foo => nil
+      resource[:foo] = "bar"
 
-      @type.set_resource_parameters(@resource, @scope)
+      type.set_resource_parameters(resource, scope)
 
-      @scope['foo'].should == "bar"
+      scope['foo'].should == "bar"
     end
 
     it "should fail if any of the resource's parameters are not valid attributes" do
-      @type.set_arguments :foo => nil
-      @resource[:boo] = "baz"
+      type.set_arguments :foo => nil
+      resource[:boo] = "baz"
 
-      lambda { @type.set_resource_parameters(@resource, @scope) }.should raise_error(Puppet::ParseError)
+      lambda { type.set_resource_parameters(resource, scope) }.should raise_error(Puppet::ParseError)
     end
 
     it "should evaluate and set its default values as variables for parameters not provided by the resource" do
-      @type.set_arguments :foo => Puppet::Parser::AST::String.new(:value => "something")
-      @type.set_resource_parameters(@resource, @scope)
-      @scope['foo'].should == "something"
+      type.set_arguments :foo => Puppet::Parser::AST::String.new(:value => "something")
+      type.set_resource_parameters(resource, scope)
+      scope['foo'].should == "something"
     end
 
     it "should set all default values as parameters in the resource" do
-      @type.set_arguments :foo => Puppet::Parser::AST::String.new(:value => "something")
+      type.set_arguments :foo => Puppet::Parser::AST::String.new(:value => "something")
 
-      @type.set_resource_parameters(@resource, @scope)
+      type.set_resource_parameters(resource, scope)
 
-      @resource[:foo].should == "something"
+      resource[:foo].should == "something"
     end
 
     it "should fail if the resource does not provide a value for a required argument" do
-      @type.set_arguments :foo => nil
+      type.set_arguments :foo => nil
 
-      lambda { @type.set_resource_parameters(@resource, @scope) }.should raise_error(Puppet::ParseError)
+      lambda { type.set_resource_parameters(resource, scope) }.should raise_error(Puppet::ParseError)
     end
 
     it "should set the resource's title as a variable if not otherwise provided" do
-      @type.set_resource_parameters(@resource, @scope)
+      type.set_resource_parameters(resource, scope)
 
-      @scope['title'].should == "bar"
+      scope['title'].should == "bar"
     end
 
     it "should set the resource's name as a variable if not otherwise provided" do
-      @type.set_resource_parameters(@resource, @scope)
+      type.set_resource_parameters(resource, scope)
 
-      @scope['name'].should == "bar"
+      scope['name'].should == "bar"
     end
 
     it "should set its module name in the scope if available" do
-      @type.instance_eval { @module_name = "mymod" }
+      type.set_resource_parameters(resource, scope)
 
-      @type.set_resource_parameters(@resource, @scope)
-
-      @scope["module_name"].should == "mymod"
+      scope["module_name"].should == "bar"
     end
 
     it "should set its caller module name in the scope if available" do
-      @scope.expects(:parent_module_name).returns "mycaller"
+      mod = Puppet::Module.new('mycaller', nil, resource.environment)
+      scope.stubs(:parent_module).returns mod
 
-      @type.set_resource_parameters(@resource, @scope)
+      type.set_resource_parameters(resource, scope)
 
-      @scope["caller_module_name"].should == "mycaller"
+      scope["caller_module_name"].should == "mycaller"
     end
   end
 
@@ -408,7 +408,8 @@ describe Puppet::Resource::Type do
       # This is so the internal resource lookup works, yo.
       @compiler.catalog.add_resource @resource
 
-      @type = Puppet::Resource::Type.new(:hostclass, "foo")
+      @mod = Puppet::Module.new('bar', nil, @resource.environment)
+      @type = Puppet::Resource::Type.new(:hostclass, "foo", :module => @mod)
       @resource.environment.known_resource_types.add @type
     end
 
@@ -418,13 +419,13 @@ describe Puppet::Resource::Type do
     end
 
     it "should add node names to the classes list" do
-      @type = Puppet::Resource::Type.new(:node, "foo")
+      @type = Puppet::Resource::Type.new(:node, "foo", :module => @mod)
       @type.evaluate_code(@resource)
       @compiler.catalog.classes.should be_include("foo")
     end
 
     it "should not add defined resource names to the classes list" do
-      @type = Puppet::Resource::Type.new(:definition, "foo")
+      @type = Puppet::Resource::Type.new(:definition, "foo", :module => @mod)
       @type.evaluate_code(@resource)
       @compiler.catalog.classes.should_not be_include("foo")
     end
@@ -451,7 +452,7 @@ describe Puppet::Resource::Type do
     end
 
     it "should still create a scope but not store it if the type is a definition" do
-      @type = Puppet::Resource::Type.new(:definition, "foo")
+      @type = Puppet::Resource::Type.new(:definition, "foo", :module => @mod)
       @type.evaluate_code(@resource)
       @scope.class_scope(@type).should be_nil
     end
@@ -459,7 +460,7 @@ describe Puppet::Resource::Type do
     it "should evaluate the AST code if any is provided" do
       code = stub 'code'
       @type.stubs(:code).returns code
-      subscope = stub_everything("subscope", :compiler => @compiler)
+      subscope = @scope.newscope
       @scope.stubs(:newscope).returns subscope
       code.expects(:safeevaluate).with subscope
 
@@ -483,7 +484,7 @@ describe Puppet::Resource::Type do
 
     describe "and it has a parent class" do
       before do
-        @parent_type = Puppet::Resource::Type.new(:hostclass, "parent")
+        @parent_type = Puppet::Resource::Type.new(:hostclass, "parent", :module => @mod)
         @type.parent = "parent"
         @parent_resource = Puppet::Parser::Resource.new(:class, "parent", :scope => @scope)
 
@@ -522,8 +523,8 @@ describe Puppet::Resource::Type do
 
     describe "and it has a parent node" do
       before do
-        @type = Puppet::Resource::Type.new(:node, "foo")
-        @parent_type = Puppet::Resource::Type.new(:node, "parent")
+        @type = Puppet::Resource::Type.new(:node, "foo", :module => @mod)
+        @parent_type = Puppet::Resource::Type.new(:node, "parent", :module => @mod)
         @type.parent = "parent"
         @parent_resource = Puppet::Parser::Resource.new(:node, "parent", :scope => @scope)
 

@@ -332,10 +332,12 @@ class Puppet::Parser::Scope
     compiler.newscope(self, options)
   end
 
-  def parent_module_name
-    return nil unless @parent
-    return nil unless @parent.source
-    @parent.source.module_name
+  def parent_module
+    if @parent and @parent.source
+      @parent.source.module
+    else
+      Puppet::Module::NullModule.instance
+    end
   end
 
   # Set defaults for a type.  The typename should already be downcased,

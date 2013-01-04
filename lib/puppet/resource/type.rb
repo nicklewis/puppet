@@ -28,7 +28,7 @@ class Puppet::Resource::Type
   RESOURCE_EXTERNAL_NAMES_TO_KINDS = RESOURCE_KINDS_TO_EXTERNAL_NAMES.invert
 
   attr_accessor :file, :line, :doc, :code, :parent, :resource_type_collection
-  attr_reader :namespace, :arguments, :behaves_like, :module_name
+  attr_reader :namespace, :arguments, :behaves_like, :module
 
   # This should probably be renamed to 'kind' eventually, in accordance with the changes
   #  made for serialization and API usability (#14137).  At the moment that seems like
@@ -157,7 +157,7 @@ class Puppet::Resource::Type
 
     set_arguments(options[:arguments])
 
-    @module_name = options[:module_name]
+    @module = options[:module] || Puppet::Module::NullModule.instance
   end
 
   # This is only used for node names, and really only when the node name
@@ -227,7 +227,12 @@ class Puppet::Resource::Type
     if resource = scope.catalog.resource(resource_type, name) and !parameters
       return resource
     end
-    resource = Puppet::Parser::Resource.new(resource_type, name, :scope => scope, :source => self)
+    opts = {
+      :scope => scope,
+      :source => self
+    }
+    opts.merge!(:module => self.module) if resource_type == :class
+    resource = Puppet::Parser::Resource.new(resource_type, name, opts)
     assign_parameter_values(parameters, resource)
     instantiate_resource(scope, resource)
     scope.compiler.add_resource(scope, resource)
@@ -315,10 +320,12 @@ class Puppet::Resource::Type
       scope["title"] = resource.title               unless set.include? :title
       scope["name"] =  resource.name                unless set.include? :name
     end
-    scope["module_name"] = module_name if module_name and ! set.include? :module_name
 
-    if caller_name = scope.parent_module_name and ! set.include?(:caller_module_name)
-      scope["caller_module_name"] = caller_name
+    scope["module_name"] = self.module.name unless self.module.null_module? or set.include? :module_name
+
+    caller_module = scope.parent_module
+    if ! caller_module.null_module? and ! set.include?(:caller_module_name)
+      scope["caller_module_name"] = caller_module.name
     end
     scope.class_set(self.name,scope) if hostclass? or node?
 

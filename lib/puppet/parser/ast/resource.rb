@@ -22,7 +22,7 @@ class Resource < AST::Branch
     # First level of implicit iteration: build a resource for each
     # instance.  This handles things like:
     # file { '/foo': owner => blah; '/bar': owner => blah }
-    @instances.collect { |instance|
+    @instances.collect do |instance|
 
       # Evaluate all of the specified params.
       paramobjects = instance.parameters.collect { |param|
@@ -39,7 +39,7 @@ class Resource < AST::Branch
       # Second level of implicit iteration; build a resource for each
       # title.  This handles things like:
       # file { ['/foo', '/bar']: owner => blah }
-      resource_titles.flatten.collect { |resource_title|
+      resource_titles.flatten.collect do |resource_title|
         exceptwrap :type => Puppet::ParseError do
           resource = Puppet::Parser::Resource.new(
             fully_qualified_type, resource_title,
@@ -57,11 +57,14 @@ class Resource < AST::Branch
             resource.resource_type.instantiate_resource(scope, resource)
           end
           scope.compiler.add_resource(scope, resource)
-          scope.compiler.evaluate_classes([resource_title], scope, false, true) if fully_qualified_type == 'class'
+          if fully_qualified_type == 'class'
+            resource.module = resource.resource_type.module
+            scope.compiler.evaluate_classes([resource_title], scope, false, true)
+          end
           resource
         end
-      }
-    }.flatten.reject { |resource| resource.nil? }
+      end
+    end.flatten.compact
   end
 end
 end

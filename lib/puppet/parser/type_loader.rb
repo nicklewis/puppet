@@ -94,7 +94,7 @@ class Puppet::Parser::TypeLoader
             known_resource_types.nodes.values +
             known_resource_types.hostclasses.values
 
-          type = Puppet::Resource::Type.new(:hostclass, '')
+          type = Puppet::Resource::Type.new(:hostclass, '', :module => mod)
           begin
             Puppet::DSL::Parser.prepare_for_evaluation type, File.read(file), file
           rescue => e

@@ -222,6 +222,7 @@ class Puppet::Parser::Resource < Puppet::Resource
     result.line = self.line
     result.exported = self.exported
     result.virtual = self.virtual
+    result.module = self.module
     result.tag(*self.tags)
 
     result

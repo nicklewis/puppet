@@ -78,8 +78,8 @@ module Puppet
 
         name   = name.to_s unless name.is_a? Regexp
         parent = options[:inherits].to_s if options[:inherits]
-        node = Puppet::Resource::Type.new :node, name, :parent => parent
-        node.ruby_code << Context.new(code, :filename => @filename, :nesting => nesting + 1)
+        node = Puppet::Resource::Type.new :node, name, :parent => parent, :module => @module
+        node.ruby_code << Context.new(code, :filename => @filename, :nesting => nesting + 1, :module => @module)
 
         Parser.known_resource_types.add_node node
       end
@@ -104,8 +104,8 @@ module Puppet
 
         validate_options [:inherits, :arguments], options
 
-        hostclass = Puppet::Resource::Type.new :hostclass, name.to_s, :arguments => options[:arguments], :parent => options[:inherits].to_s
-        hostclass.ruby_code << Context.new(code, :filename => @filename, :nesting => nesting + 1)
+        hostclass = Puppet::Resource::Type.new :hostclass, name.to_s, :arguments => options[:arguments], :parent => options[:inherits].to_s, :module => @module
+        hostclass.ruby_code << Context.new(code, :filename => @filename, :nesting => nesting + 1, :module => @module)
 
         Parser.known_resource_types.add_hostclass hostclass
       end
@@ -129,8 +129,8 @@ module Puppet
 
         validate_options [:arguments], options
 
-        definition = Puppet::Resource::Type.new :definition, name.to_s, options
-        definition.ruby_code << Context.new(code, :filename => @filename, :nesting => nesting + 1)
+        definition = Puppet::Resource::Type.new :definition, name.to_s, options.merge(:module => @module)
+        definition.ruby_code << Context.new(code, :filename => @filename, :nesting => nesting + 1, :module => @module)
 
         Parser.known_resource_types.add_definition definition
       end

@@ -18,7 +18,7 @@ class Puppet::Resource
 
   extend Puppet::Util::Pson
   include Enumerable
-  attr_accessor :file, :line, :catalog, :exported, :virtual, :validate_parameters, :strict
+  attr_accessor :file, :line, :catalog, :exported, :virtual, :validate_parameters, :strict, :module
   attr_reader :type, :title
 
   require 'puppet/indirector'
@@ -76,6 +76,16 @@ class Puppet::Resource
     end
 
     data["parameters"] = params unless params.empty?
+
+    # This is terrible, but it works.
+    if self.module
+      data['module'] = {
+        'name'    => self.module.name,
+        'author'  => self.module.author,
+        'version' => self.module.version,
+      }
+    end
+
 
     data
   end

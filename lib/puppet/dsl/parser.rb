@@ -26,7 +26,7 @@ module Puppet
       #
       def self.prepare_for_evaluation(main, code, filename = "dsl_main")
         block = proc { instance_eval code, filename, 0 }
-        main.ruby_code << Context.new(block, :filename => filename)
+        main.ruby_code << Context.new(block, :filename => filename, :module => @module)
       end
 
       # @return [Puppet::Parser::Scope] the current scope

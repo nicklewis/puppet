@@ -66,6 +66,7 @@ module Puppet
       def initialize(code, options = {})
         @nesting  = options.fetch :nesting,  0
         @filename = options.fetch :filename, "dsl_main"
+        @module   = options.fetch :module, ::Puppet::Module::NullModule.instance
         @proxy    = ::Puppet::DSL::Actions.new @filename
         @code     = code
       end

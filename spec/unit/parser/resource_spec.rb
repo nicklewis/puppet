@@ -133,8 +133,7 @@ describe Puppet::Parser::Resource do
       @node = Puppet::Node.new "test-node"
       @compiler = Puppet::Parser::Compiler.new @node
       @catalog = Puppet::Resource::Catalog.new
-      source = stub('source')
-      source.stubs(:module_name)
+      source = Puppet::Resource::Type.new(:hostclass, 'parent', {})
       @scope = Puppet::Parser::Scope.new(@compiler, :source => source)
       @catalog.add_resource(Puppet::Parser::Resource.new("stage", :main, :scope => @scope))
     end

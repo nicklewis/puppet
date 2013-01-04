@@ -16,7 +16,7 @@ describe Puppet::Parser::AST::Definition do
       instantiated_definitions[0].type.should == :definition
       instantiated_definitions[0].name.should == 'foo'
       instantiated_definitions[0].line.should == 5
-      instantiated_definitions[0].module_name.should == 'modname'
+      instantiated_definitions[0].module.name.should == 'modname'
     end
   end
 end

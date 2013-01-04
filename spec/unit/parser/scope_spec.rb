@@ -46,18 +46,19 @@ describe Puppet::Parser::Scope do
     @scope.class_scope(klass).should == "myscope"
   end
 
-  it "should be able to retrieve its parent module name from the source of its parent type" do
-    @topscope.source = Puppet::Resource::Type.new(:hostclass, :foo, :module_name => "foo")
+  it "should be able to retrieve its parent module from the source of its parent type" do
+    mod = Puppet::Module.new('foo', nil, Puppet::Node::Environment.new)
+    @topscope.source = Puppet::Resource::Type.new(:hostclass, :foo, :module => mod)
 
-    @scope.parent_module_name.should == "foo"
+    @scope.parent_module.name.should == "foo"
   end
 
   it "should return a nil parent module name if it has no parent" do
-    @topscope.parent_module_name.should be_nil
+    @topscope.parent_module.should be_null_module
   end
 
   it "should return a nil parent module name if its parent has no source" do
-    @scope.parent_module_name.should be_nil
+    @scope.parent_module.should be_null_module
   end
 
   it "should get its environment from its compiler" do

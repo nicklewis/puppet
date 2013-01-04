@@ -9,6 +9,6 @@ class Puppet::Parser::AST::Definition < Puppet::Parser::AST::TopLevelConstruct
   end
 
   def instantiate(mod)
-    [Puppet::Resource::Type.new(:definition, @name, @context.merge(:module_name => mod.name))]
+    [Puppet::Resource::Type.new(:definition, @name, @context.merge(:module => mod))]
   end
 end

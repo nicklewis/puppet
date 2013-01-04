@@ -33,7 +33,7 @@ describe Puppet::Parser::AST::Hostclass do
       instantiated_class.name.should == 'foo'
       instantiated_class.code.should be_equal(code)
       instantiated_class.line.should == 5
-      instantiated_class.module_name.should == 'modname'
+      instantiated_class.module.name.should == 'modname'
     end
 
     it "should instantiate all nested classes, defines, and nodes with the same module name." do
@@ -47,7 +47,7 @@ describe Puppet::Parser::AST::Hostclass do
       instantiated_classes[1].name.should == 'foo::child1'
       instantiated_classes[2].name.should == 'foo::child2'
       instantiated_classes[3].name.should == 'child3'
-      instantiated_classes.each { |cls| cls.module_name.should == 'modname' }
+      instantiated_classes.each { |cls| cls.module.name.should == 'modname' }
     end
 
     it "should handle a nested class that contains its own nested classes." do

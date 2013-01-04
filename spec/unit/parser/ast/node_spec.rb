@@ -18,7 +18,7 @@ describe Puppet::Parser::AST::Node do
       instantiated_nodes[0].type.should == :node
       instantiated_nodes[0].name.should == 'foo'
       instantiated_nodes[0].line.should == 5
-      instantiated_nodes[0].module_name.should == 'modname'
+      instantiated_nodes[0].module.name.should == 'modname'
     end
 
     it "should handle multiple names" do
