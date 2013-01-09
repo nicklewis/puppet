@@ -1,6 +1,8 @@
 #! /usr/bin/env ruby
 require 'spec_helper'
 
+require 'puppet_spec/modules'
+
 describe Puppet::Parser::Compiler do
   before :each do
     @node = Puppet::Node.new "testnode"
@@ -304,6 +306,152 @@ describe Puppet::Parser::Compiler do
 
       expected_relationships << ['a', 'b'] << ['d', 'c']
       expected_subscriptions << ['b', 'c'] << ['e', 'd']
+    end
+  end
+
+  describe "when working with modules" do
+    include PuppetSpec::Files
+
+    before :each do
+      moduledir = tmpdir('modules')
+      Puppet[:modulepath] = moduledir
+
+      @foo = PuppetSpec::Modules.create("foo", moduledir, :metadata => {:author => "somebody", :version => "1.2.3"})
+      @bar = PuppetSpec::Modules.create("bar", moduledir, :metadata => {:author => "nobody", :version => "4.5.6"})
+
+      Dir.mkdir(@foo.manifests)
+      Dir.mkdir(@bar.manifests)
+    end
+
+    it "uses the module where a class is defined, not declared" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "class foo { }" }
+      File.open(File.join(@bar.manifests, 'init.pp'), 'w') { |f| f.puts "class bar { class { foo: } }" }
+
+      Puppet[:code] = "class { bar: }"
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Class[foo]').module.should == @foo
+      catalog.resource('Class[bar]').module.should == @bar
+    end
+
+    it "uses the module where a class is defined, not included" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "class foo { }" }
+      File.open(File.join(@bar.manifests, 'init.pp'), 'w') { |f| f.puts "class bar { include foo }" }
+
+      Puppet[:code] = "include bar"
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Class[foo]').module.should == @foo
+      catalog.resource('Class[bar]').module.should == @bar
+    end
+
+    it "uses the module where a class is defined, even if it's imported with an absolute path" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "class foo { }" }
+      File.open(File.join(@bar.manifests, 'init.pp'), 'w') do |f|
+        f.puts <<-MANIFEST
+          import '#{@foo.manifest('init.pp')}'
+          class bar { class { foo: } }
+        MANIFEST
+      end
+
+      Puppet[:code] = "class { bar: }"
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Class[foo]').module.should == @foo
+      catalog.resource('Class[bar]').module.should == @bar
+    end
+
+    it "uses the module where a resource is declared" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "class foo { notify { heyo: } }" }
+      File.open(File.join(@bar.manifests, 'init.pp'), 'w') { |f| f.puts "class bar { class { foo: } }" }
+
+      Puppet[:code] = "class { bar: }"
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Notify[heyo]').module.should == @foo
+    end
+
+    it "uses the module where an instance of a define is declared, not where the define is defined" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "define foo { notify { heyo: } }" }
+      File.open(File.join(@bar.manifests, 'init.pp'), 'w') { |f| f.puts "class bar { foo { something: } }" }
+
+      Puppet[:code] = "class { bar: }"
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Foo[something]').module.should == @bar
+    end
+
+    # something something resources in defines
+    it "uses the module where I have no idea"
+
+    it "uses the NullModule for resources outside modules" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "class foo { }" }
+
+      Puppet[:code] = <<-MANIFEST
+        class { foo: }
+        notify { hi: }
+      MANIFEST
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Class[foo]').module.should == @foo
+      catalog.resource('Notify[hi]').module.should == Puppet::Module::NullModule.instance
+    end
+
+    it "uses the NullModule for node definitions outside modules" do
+      Puppet[:code] = "node default { }"
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Node[default]').module.should == Puppet::Module::NullModule.instance
+    end
+
+    it "uses the module where a node was defined" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "node default { }" }
+
+      Puppet[:code] = "import '#{@foo.manifest('init.pp')}'"
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Node[default]').module.should == @foo
+    end
+
+    it "uses the module where a node was defined even if it was defined tangentially" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') do |f|
+        f.puts <<-MANIFEST
+          class foo { }
+          node default { }
+        MANIFEST
+      end
+
+      Puppet[:code] = "include foo"
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Node[default]').module.should == @foo
+    end
+
+    it "uses the module where a resource was declared if it was declared inside a node" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "node default { notify { hi: } }" }
+
+      Puppet[:code] = "import '#{@foo.manifest('init.pp')}'"
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Notify[hi]').module.should == @foo
+    end
+
+    it "uses the NullModule if a resource is declared in a node outside a module" do
+      Puppet[:code] = "node default { notify { hi: } }"
+
+      catalog = Puppet::Parser::Compiler.compile(@node)
+
+      catalog.resource('Notify[hi]').module.should == Puppet::Module::NullModule.instance
     end
   end
 end

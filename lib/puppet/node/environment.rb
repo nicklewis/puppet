@@ -214,6 +214,10 @@ class Puppet::Node::Environment
     end
   end
 
+  def ==(other)
+    self.name.to_s == other.name.to_s
+  end
+
   private
 
   def perform_initial_import

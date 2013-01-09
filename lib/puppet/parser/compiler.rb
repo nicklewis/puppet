@@ -281,7 +281,7 @@ class Puppet::Parser::Compiler
   def evaluate_main
     @main = known_resource_types.find_hostclass([""], "") || known_resource_types.add(Puppet::Resource::Type.new(:hostclass, ""))
     @topscope.source = @main
-    @main_resource = Puppet::Parser::Resource.new("class", :main, :scope => @topscope, :source => @main)
+    @main_resource = Puppet::Parser::Resource.new("class", :main, :scope => @topscope, :source => @main, :module => Puppet::Module::NullModule.instance)
     @topscope.resource = @main_resource
 
     add_resource(@topscope, @main_resource)
@@ -429,7 +429,7 @@ class Puppet::Parser::Compiler
     # Create our initial scope and a resource that will evaluate main.
     @topscope = Puppet::Parser::Scope.new(self)
 
-    @main_stage_resource = Puppet::Parser::Resource.new("stage", :main, :scope => @topscope)
+    @main_stage_resource = Puppet::Parser::Resource.new("stage", :main, :scope => @topscope, :module => Puppet::Module::NullModule.instance)
     @catalog.add_resource(@main_stage_resource)
 
     # local resource array to maintain resource ordering
