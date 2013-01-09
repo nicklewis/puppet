@@ -60,6 +60,8 @@ class Resource < AST::Branch
           if fully_qualified_type == 'class'
             resource.module = resource.resource_type.module
             scope.compiler.evaluate_classes([resource_title], scope, false, true)
+          else
+            resource.module = scope.resource.module
           end
           resource
         end
