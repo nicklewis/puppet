@@ -78,7 +78,7 @@ class Puppet::Parser::TypeLoader
     end
 
     pat = file
-    mod, files = Puppet::Parser::Files.find_manifests(pat, :cwd => dir, :environment => environment)
+    files = Puppet::Parser::Files.find_manifests(pat, :cwd => dir, :environment => environment)
     if files.size == 0
       raise Puppet::ImportError.new("No file(s) found for import of '#{pat}'")
     end
@@ -87,6 +87,8 @@ class Puppet::Parser::TypeLoader
     loaded_ruby_types = []
     files.each do |file|
       file = File.join dir, file unless Puppet::Util.absolute_path? file
+
+      mod = environment.module_containing_file(file)
 
       @loading_helper.do_once(file) do
         if Puppet::Util::ManifestFiletypeHelper.is_ruby_filename? file
@@ -107,14 +109,15 @@ class Puppet::Parser::TypeLoader
             known_resource_types.hostclasses.values
           loaded_ruby_types = known_now - known_before
         else
-          loaded_asts << parse_file(file)
+          loaded_asts << [parse_file(file), mod]
         end
       end
     end
 
-    loaded_puppet_types = loaded_asts.inject([]) do |loaded_types, ast|
-      loaded_types + known_resource_types.import_ast(ast, mod)
-    end
+    loaded_puppet_types = loaded_asts.map do |ast,mod|
+      known_resource_types.import_ast(ast, mod)
+    end.flatten
+
     loaded_ruby_types + loaded_puppet_types
   end
 

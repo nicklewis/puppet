@@ -112,6 +112,11 @@ class Puppet::Node::Environment
     found_mod.forge_name == forge_name ? found_mod : Puppet::Module::NullModule.instance
   end
 
+  def module_containing_file(filename)
+    raise Puppet::DevError, "Can't look for modules based on a relative file path" unless Puppet::Util.absolute_path?(filename)
+    modules.find { |mod| mod.contains_file?(filename) } || Puppet::Module::NullModule.instance
+  end
+
   # Cache the modulepath, so that we aren't searching through
   # all known directories all the time.
   cached_attr(:modulepath, Puppet[:filetimeout]) do

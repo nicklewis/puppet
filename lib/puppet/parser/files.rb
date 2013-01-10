@@ -21,7 +21,7 @@ module Puppet::Parser::Files
     # If there isn't a module, we look for the whole original path
     pattern = start if mod.null_module?
 
-    [mod, mod.match_manifests(pattern, cwd)]
+    mod.match_manifests(pattern, cwd)
   end
 
   # Find the concrete file denoted by +file+. If +file+ is absolute,

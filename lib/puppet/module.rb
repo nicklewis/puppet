@@ -277,6 +277,13 @@ class Puppet::Module
     self.environment == other.environment
   end
 
+  # Assume filename is an absolute path
+  def contains_file?(filename)
+    return false unless path
+    parents = Pathname.new(filename).enum_for(:ascend)
+    parents.any? { |parent| parent.to_s == path }
+  end
+
   private
 
   def subpath(type)
