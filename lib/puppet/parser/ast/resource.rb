@@ -57,11 +57,16 @@ class Resource < AST::Branch
             resource.resource_type.instantiate_resource(scope, resource)
           end
           scope.compiler.add_resource(scope, resource)
+
           if fully_qualified_type == 'class'
+            # Class resources use the module where the class was defined.
             resource.module = resource.resource_type.module
             scope.compiler.evaluate_classes([resource_title], scope, false, true)
           else
-            resource.module = scope.resource.module
+            # Other resources use the module where the resource was declared,
+            # which is where the type of the scope resource (class, define, or
+            # node) was defined.
+            resource.module = scope.resource.resource_type.module
           end
           resource
         end
