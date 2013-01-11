@@ -433,59 +433,82 @@ describe Puppet::Parser::Compiler do
       catalog.resource('Class[bar]').module.should == @bar
     end
 
-    describe "the crazy cases" do
-      it "uses the NullModule for resources outside modules" do
-        File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "class foo { }" }
+    it "uses the NullModule for resources outside modules" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "class foo { }" }
 
-        Puppet[:code] = <<-MANIFEST
+      Puppet[:code] = <<-MANIFEST
         class { foo: }
         notify { hi: }
-        MANIFEST
+      MANIFEST
 
-        catalog.resource('Class[foo]').module.should == @foo
-        catalog.resource('Notify[hi]').module.should == Puppet::Module::NullModule.instance
-      end
+      catalog.resource('Class[foo]').module.should == @foo
+      catalog.resource('Notify[hi]').module.should == Puppet::Module::NullModule.instance
+    end
 
-      it "uses the NullModule for node definitions outside modules" do
-        Puppet[:code] = "node default { }"
+    it "uses the NullModule for node definitions outside modules" do
+      Puppet[:code] = "node default { }"
 
-        catalog.resource('Node[default]').module.should == Puppet::Module::NullModule.instance
-      end
+      catalog.resource('Node[default]').module.should == Puppet::Module::NullModule.instance
+    end
 
-      it "uses the module where a node was defined" do
-        File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "node default { }" }
+    it "uses the module where a node was defined" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "node default { }" }
 
-        Puppet[:code] = "import '#{@foo.manifest('init.pp')}'"
+      Puppet[:code] = "import '#{@foo.manifest('init.pp')}'"
 
-        catalog.resource('Node[default]').module.should == @foo
-      end
+      catalog.resource('Node[default]').module.should == @foo
+    end
 
-      it "uses the module where a node was defined even if it was defined tangentially" do
-        File.open(File.join(@foo.manifests, 'init.pp'), 'w') do |f|
-          f.puts <<-MANIFEST
+    it "uses the module where a node was defined even if it was defined tangentially" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') do |f|
+        f.puts <<-MANIFEST
           class foo { }
           node default { }
-          MANIFEST
-        end
-
-        Puppet[:code] = "include foo"
-
-        catalog.resource('Node[default]').module.should == @foo
+        MANIFEST
       end
 
-      it "uses the module where a resource was declared if it was declared inside a node" do
-        File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "node default { notify { hi: } }" }
+      Puppet[:code] = "include foo"
 
-        Puppet[:code] = "import '#{@foo.manifest('init.pp')}'"
+      catalog.resource('Node[default]').module.should == @foo
+    end
 
-        catalog.resource('Notify[hi]').module.should == @foo
-      end
+    it "uses the module where a resource was declared if it was declared inside a node" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "node default { notify { hi: } }" }
 
-      it "uses the NullModule if a resource is declared in a node outside a module" do
-        Puppet[:code] = "node default { notify { hi: } }"
+      Puppet[:code] = "import '#{@foo.manifest('init.pp')}'"
 
-        catalog.resource('Notify[hi]').module.should == Puppet::Module::NullModule.instance
-      end
+      catalog.resource('Notify[hi]').module.should == @foo
+    end
+
+    it "uses the NullModule if a resource is declared in a node outside a module" do
+      Puppet[:code] = "node default { notify { hi: } }"
+
+      catalog.resource('Notify[hi]').module.should == Puppet::Module::NullModule.instance
+    end
+
+    it "uses the right modules when importing a glob that spans multiple modules" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "class foo { }" }
+      File.open(File.join(@bar.manifests, 'init.pp'), 'w') { |f| f.puts "class bar { }" }
+
+      Puppet[:code] = <<-MANIFEST
+        import '#{File.join(File.dirname(@foo.path), '*', 'manifests', 'init.pp')}'
+        class { foo: }
+        class { bar: }
+      MANIFEST
+
+      catalog.resource('Class[foo]').module.should == @foo
+      catalog.resource('Class[bar]').module.should == @bar
+    end
+
+    it "uses the right module when importing using a relative path inside a module" do
+      File.open(File.join(@foo.manifests, 'init.pp'), 'w') { |f| f.puts "class foo { }" }
+
+      Puppet[:code] = <<-MANIFEST
+        import '#{Pathname.new(@foo.manifest('init.pp')).relative_path_from(Pathname.new(Dir.getwd))}'
+        class { foo: }
+      MANIFEST
+
+      catalog.resource('Class[foo]').module.should == @foo
     end
   end
 end
