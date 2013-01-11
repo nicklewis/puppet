@@ -274,7 +274,7 @@ class Puppet::Module
     self.name == other.name &&
     self.version == other.version &&
     self.path == other.path &&
-    self.environment == other.environment
+    self.environment.to_s == other.environment.to_s
   end
 
   # Assume filename is an absolute path
