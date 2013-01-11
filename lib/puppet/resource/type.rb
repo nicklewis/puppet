@@ -227,12 +227,7 @@ class Puppet::Resource::Type
     if resource = scope.catalog.resource(resource_type, name) and !parameters
       return resource
     end
-    opts = {
-      :scope => scope,
-      :source => self
-    }
-    opts.merge!(:module => self.module) if resource_type == :class
-    resource = Puppet::Parser::Resource.new(resource_type, name, opts)
+    resource = Puppet::Parser::Resource.new(resource_type, name, :scope => scope, :source => self, :module => self.module)
     assign_parameter_values(parameters, resource)
     instantiate_resource(scope, resource)
     scope.compiler.add_resource(scope, resource)
