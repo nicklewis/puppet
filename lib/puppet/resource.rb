@@ -78,14 +78,11 @@ class Puppet::Resource
     data["parameters"] = params unless params.empty?
 
     # This is terrible, but it works.
-    if self.module
-      data['module'] = {
-        'name'    => self.module.name,
-        'author'  => self.module.author,
-        'version' => self.module.version,
-      }
-    end
-
+    data['module'] = {
+      'name'    => self.module.name,
+      'author'  => self.module.author,
+      'version' => self.module.version,
+    }
 
     data
   end
@@ -233,6 +230,7 @@ class Puppet::Resource
     end
 
     @type, @title = self.class.get_type_and_title(type, title)
+    @module ||= Puppet::Module::NullModule.instance
 
 
     if self.class?
