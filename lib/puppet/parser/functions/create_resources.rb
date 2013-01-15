@@ -76,7 +76,7 @@ Puppet::Parser::Functions::newfunction(:create_resources, :arity => -3, :doc => 
     # JJM The only difference between a type and a define is the call to instantiate_resource
     # for a defined type.
     when :type, :define
-      p_resource = Puppet::Parser::Resource.new(type_name, title, :scope => self, :source => resource)
+      p_resource = Puppet::Parser::Resource.new(type_name, title, :scope => self, :source => resource, :module => self.resource.resource_type.module)
       p_resource.virtual = type_virtual
       p_resource.exported = type_exported
       {:name => title}.merge(params).each do |k,v|

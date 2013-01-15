@@ -1,9 +1,11 @@
 require 'puppet'
 require 'spec_helper'
 require 'puppet_spec/compiler'
+require 'puppet_spec/modules'
 
 describe 'function for dynamically creating resources' do
   include PuppetSpec::Compiler
+  include PuppetSpec::Files
 
   before :each do
     node      = Puppet::Node.new("floppy", :environment => 'production')
@@ -11,6 +13,9 @@ describe 'function for dynamically creating resources' do
     @scope    = Puppet::Parser::Scope.new(@compiler)
     @topscope = @scope.compiler.topscope
     @scope.parent = @topscope
+    resource_type = stub('resource_type', :module => Puppet::Module::NullModule.instance)
+    resource = stub('resource', :resource_type => resource_type)
+    @scope.resource = resource
     Puppet::Parser::Functions.function(:create_resources)
   end
 
@@ -155,6 +160,86 @@ describe 'function for dynamically creating resources' do
 
       catalog.resource(:notify, "blah")['message'].should == 'two'
     end
+
+    it "should add the current module to the resource" do
+      moduledir = tmpdir('modules')
+      Puppet[:modulepath] = moduledir
+
+      foo = PuppetSpec::Modules.create("foo", moduledir, :metadata => {:author => "somebody", :version => "1.2.3"})
+
+      Dir.mkdir(foo.manifests)
+
+      File.open(File.join(foo.manifests, 'init.pp'), 'w') do |f|
+        f.puts <<-MANIFEST
+          class foo {
+            create_resources('notify', {'hello' => {}})
+          }
+        MANIFEST
+      end
+
+      catalog = compile_to_catalog(<<-MANIFEST)
+        include foo
+      MANIFEST
+
+      catalog.resource('Notify[hello]').module.should == foo
+    end
+
+    it "should add the current module to resources inside a define" do
+      moduledir = tmpdir('modules')
+      Puppet[:modulepath] = moduledir
+
+      foo = PuppetSpec::Modules.create("foo", moduledir, :metadata => {:author => "somebody", :version => "1.2.3"})
+
+      Dir.mkdir(foo.manifests)
+
+      File.open(File.join(foo.manifests, 'init.pp'), 'w') do |f|
+        f.puts <<-MANIFEST
+          define foo {
+            create_resources('notify', {'hello' => {}})
+          }
+        MANIFEST
+      end
+
+      catalog = compile_to_catalog(<<-MANIFEST)
+        foo { something: }
+      MANIFEST
+
+      catalog.resource('Notify[hello]').module.should == foo
+    end
+
+    it "should add the current module to defined resources" do
+      moduledir = tmpdir('modules')
+      Puppet[:modulepath] = moduledir
+
+      foo = PuppetSpec::Modules.create("foo", moduledir, :metadata => {:author => "somebody", :version => "1.2.3"})
+      bar = PuppetSpec::Modules.create("bar", moduledir, :metadata => {:author => "somebody", :version => "1.2.3"})
+
+      Dir.mkdir(foo.manifests)
+      Dir.mkdir(bar.manifests)
+
+      File.open(File.join(foo.manifests, 'init.pp'), 'w') do |f|
+        f.puts <<-MANIFEST
+          define foo {
+            notify { hello: }
+          }
+        MANIFEST
+      end
+
+      File.open(File.join(bar.manifests, 'init.pp'), 'w') do |f|
+        f.puts <<-MANIFEST
+          class bar {
+            create_resources('foo', {'something' => {}})
+          }
+        MANIFEST
+      end
+
+      catalog = compile_to_catalog(<<-MANIFEST)
+        include bar
+      MANIFEST
+
+      catalog.resource('Foo[something]').module.should == bar
+      catalog.resource('Notify[hello]').module.should == foo
+    end
   end
 
   describe 'when creating classes' do
@@ -209,6 +294,27 @@ describe 'function for dynamically creating resources' do
 
       catalog.resource(:notify, "test")['message'].should == 'two'
       catalog.resource(:class, "bar").should_not be_nil
+    end
+
+    it "should add the module where the class was defined to the class" do
+      moduledir = tmpdir('modules')
+      Puppet[:modulepath] = moduledir
+
+      foo = PuppetSpec::Modules.create("foo", moduledir, :metadata => {:author => "somebody", :version => "1.2.3"})
+
+      Dir.mkdir(foo.manifests)
+
+      File.open(File.join(foo.manifests, 'init.pp'), 'w') do |f|
+        f.puts <<-MANIFEST
+          class foo {}
+        MANIFEST
+      end
+
+      catalog = compile_to_catalog(<<-MANIFEST)
+        create_resources('class', {'foo' => {}})
+      MANIFEST
+
+      catalog.resource('Class[foo]').module.should == foo
     end
   end
 end
