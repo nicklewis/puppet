@@ -20,24 +20,24 @@ class Puppet::Indirector::Indirection
   probe :search, :label => Proc.new { |parent, key, *args| "search_#{parent.name}_#{parent.terminus_class}" }, :data => Proc.new { |parent, key, *args| { :key => key }}
   probe :destroy, :label => Proc.new { |parent, key, *args| "destroy_#{parent.name}_#{parent.terminus_class}" }, :data => Proc.new { |parent, key, *args| { :key => key }}
 
-  @@indirections = []
+  @@indirections = {}
 
   # Find an indirection by name.  This is provided so that Terminus classes
   # can specifically hook up with the indirections they are associated with.
   def self.instance(name)
-    @@indirections.find { |i| i.name == name }
+    @@indirections[name]
   end
 
   # Return a list of all known indirections.  Used to generate the
   # reference.
   def self.instances
-    @@indirections.collect { |i| i.name }
+    @@indirections.keys
   end
 
   # Find an indirected model by name.  This is provided so that Terminus classes
   # can specifically hook up with the indirections they are associated with.
   def self.model(name)
-    return nil unless match = @@indirections.find { |i| i.name == name }
+    return nil unless match = @@indirections[name]
     match.model
   end
 
@@ -61,7 +61,7 @@ class Puppet::Indirector::Indirection
 
   # This is only used for testing.
   def delete
-    @@indirections.delete(self) if @@indirections.include?(self)
+    @@indirections.delete(self.name)
   end
 
   # Set the time-to-live for instances created through this indirection.
@@ -101,8 +101,8 @@ class Puppet::Indirector::Indirection
     @cache_class = nil
     @terminus_class = nil
 
-    raise(ArgumentError, "Indirection #{@name} is already defined") if @@indirections.find { |i| i.name == @name }
-    @@indirections << self
+    raise(ArgumentError, "Indirection #{@name} is already defined") if @@indirections.key?(@name)
+    @@indirections[@name] = self
 
     if mod = options[:extend]
       extend(mod)

@@ -66,7 +66,7 @@ module Puppet::Test
       # randomly in some tests.  So, direct access.  --daniel 2011-08-30
       $saved_indirection_state = {}
       indirections = Puppet::Indirector::Indirection.send(:class_variable_get, :@@indirections)
-      indirections.each do |indirector|
+      indirections.values.each do |indirector|
         $saved_indirection_state[indirector.name] = {
             :@terminus_class => indirector.instance_variable_get(:@terminus_class),
             :@cache_class    => indirector.instance_variable_get(:@cache_class)
@@ -102,7 +102,7 @@ module Puppet::Test
 
       # Restore the indirector configuration.  See before hook.
       indirections = Puppet::Indirector::Indirection.send(:class_variable_get, :@@indirections)
-      indirections.each do |indirector|
+      indirections.values.each do |indirector|
         $saved_indirection_state.fetch(indirector.name, {}).each do |variable, value|
           indirector.instance_variable_set(variable, value)
         end
