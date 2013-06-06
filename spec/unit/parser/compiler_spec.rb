@@ -218,26 +218,6 @@ describe Puppet::Parser::Compiler do
       @compiler.catalog.server_version.should == "3"
     end
 
-    it "should evaluate any existing classes named in the node" do
-      classes = %w{one two three four}
-      main = stub 'main'
-      one = stub 'one', :name => "one"
-      three = stub 'three', :name => "three"
-      @node.stubs(:name).returns("whatever")
-      @node.stubs(:classes).returns(classes)
-
-      @compiler.expects(:evaluate_classes).with(classes, @compiler.topscope)
-      @compiler.class.publicize_methods(:evaluate_node_classes) { @compiler.evaluate_node_classes }
-    end
-
-    it "should evaluate any parameterized classes named in the node" do
-      classes = {'foo'=>{'p1'=>'one'}, 'bar'=>{'p2'=>'two'}}
-      @node.stubs(:classes).returns(classes)
-      @compiler.expects(:evaluate_classes).with(classes, @compiler.topscope)
-      @compiler.compile
-    end
-
-
     it "should evaluate the main class if it exists" do
       compile_stub(:evaluate_main)
       main_class = @known_resource_types.add Puppet::Resource::Type.new(:hostclass, "")
@@ -259,12 +239,6 @@ describe Puppet::Parser::Compiler do
       (klass = @compiler.catalog.resource(:class, "")).should be_instance_of(Puppet::Parser::Resource)
 
       @compiler.catalog.edge?(stage, klass).should be_true
-    end
-
-    it "should evaluate any node classes" do
-      @node.stubs(:classes).returns(%w{one two three four})
-      @compiler.expects(:evaluate_classes).with(%w{one two three four}, @compiler.topscope)
-      @compiler.send(:evaluate_node_classes)
     end
 
     it "should evaluate all added collections" do
@@ -787,6 +761,113 @@ describe Puppet::Parser::Compiler do
       node_resource.expects(:evaluate)
 
       @compiler.send(:evaluate_ast_node)
+    end
+  end
+
+  describe "when evaluating node classes" do
+    before :each do
+      @compiler.send :evaluate_main
+    end
+
+    describe "when provided classes in array format" do
+      before :each do
+        @node.classes = ['something']
+      end
+
+      describe "when the class exists" do
+        before :each do
+          @klass = Puppet::Resource::Type.new(:hostclass, 'something')
+          @known_resource_types.add_hostclass(@klass)
+        end
+
+        it "should do nothing if the class is already included" do
+          @compiler.topscope.stubs(:find_hostclass).with('something', :assume_fqname => false).returns(@klass)
+          @compiler.topscope.stubs(:class_scope).with(@klass).returns stub('class_scope')
+
+          # It shouldn't be evaluated again.
+          @klass.expects(:ensure_in_catalog).never
+
+          @compiler.evaluate_node_classes
+
+          @compiler.resources.find {|resource| resource.type == 'Class' and resource.name == 'Something'}.should be_nil
+        end
+
+        it "should evaluate the class without parameters if it's not already included" do
+          @compiler.evaluate_node_classes
+
+          @compiler.resources.find {|resource| resource.type == 'Class' and resource.name == 'Something'}.should_not be_nil
+        end
+      end
+
+      it "should fail if the class doesn't exist" do
+        @compiler.topscope.stubs(:find_hostclass).returns(nil)
+
+        expect { @compiler.evaluate_node_classes }.to raise_error(Puppet::Error, /Could not find class something/)
+      end
+    end
+
+    describe "when provided classes in hash format" do
+      describe "for classes without parameters" do
+        before :each do
+          @node.classes = {'something' => {}}
+        end
+
+        describe "when the class exists" do
+          before :each do
+            @klass = Puppet::Resource::Type.new(:hostclass, 'something')
+            @known_resource_types.add_hostclass(@klass)
+          end
+
+          it "should do nothing if the class is already included" do
+            @klass.ensure_in_catalog(@compiler.topscope)
+
+            # This will fail if it tries to evaluate the class a second time.
+            # So we just assert no failure.
+            @compiler.evaluate_node_classes
+          end
+
+          it "should evaluate the class if it's not already included" do
+            @compiler.evaluate_node_classes
+
+            @compiler.resources.find {|resource| resource.type == 'Class' and resource.name == 'Something'}.should_not be_nil
+          end
+        end
+
+        it "should fail if the class doesn't exist" do
+          expect { @compiler.evaluate_node_classes }.to raise_error(Puppet::Error, /Could not find class something/)
+        end
+      end
+
+      describe "for classes with parameters" do
+        before :each do
+          @node.classes = {'something' => {'configuron' => 'defrabulated'}}
+        end
+
+        describe "when the class exists" do
+          before :each do
+            @klass = Puppet::Resource::Type.new(:hostclass, 'something')
+            @known_resource_types.add_hostclass(@klass)
+          end
+
+          it "should do fail if the class is already included" do
+            @klass.ensure_in_catalog(@compiler.topscope)
+
+            expect { @compiler.evaluate_node_classes }.to raise_error(Puppet::Error, /Class\[Something\] is already declared/)
+          end
+
+          it "should evaluate the class if it's not already included" do
+            @compiler.evaluate_node_classes
+
+            resource = @compiler.resources.find {|resource| resource.type == 'Class' and resource.name == 'Something'}
+
+            resource['configuron'].should == 'defrabulated'
+          end
+        end
+
+        it "should fail if the class doesn't exist" do
+          expect { @compiler.evaluate_node_classes }.to raise_error(Puppet::Error, /Could not find class something/)
+        end
+      end
     end
   end
 
