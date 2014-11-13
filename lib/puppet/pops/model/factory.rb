@@ -238,6 +238,14 @@ class Puppet::Pops::Model::Factory
     o
   end
 
+  def build_ResourceTypeDefinition(o, name, parameters, produces, consumes, body)
+    build_NamedDefinition(o, name, parameters, body)
+
+    produces.each   {|cap| o.addProduces(build(cap)) }
+    consumes.each   {|cap| o.addConsumes(build(cap)) }
+    o
+  end
+
   # @param o [Model::NodeDefinition]
   # @param hosts [Array<Expression>] host matches
   # @param parent [Expression] parent node matcher
@@ -758,8 +766,9 @@ class Puppet::Pops::Model::Factory
     new(Model::HostClassDefinition, name, parameters, parent, body)
   end
 
-  def self.DEFINITION(name, parameters, body)
-    new(Model::ResourceTypeDefinition, name, parameters, body)
+  def self.DEFINITION(name, parameters, capabilities, body)
+    new(Model::ResourceTypeDefinition, name, parameters,
+        capabilities[:produces], capabilities[:consumes], body)
   end
 
   def self.APPLICATION(name, parameters, body)
