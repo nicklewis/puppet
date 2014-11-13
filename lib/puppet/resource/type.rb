@@ -28,6 +28,7 @@ class Puppet::Resource::Type
 
   attr_accessor :file, :line, :doc, :code, :parent, :resource_type_collection
   attr_reader :namespace, :arguments, :behaves_like, :module_name
+  attr_reader :produces
 
   # Map from argument (aka parameter) names to Puppet Type
   # @return [Hash<Symbol, Puppet::Pops::Types::PAnyType] map from name to type
@@ -105,6 +106,17 @@ class Puppet::Resource::Type
 
     resource.add_edge_to_stage
 
+    # This, somewhat magically, puts the produced resources into the catalog
+    # @todo lutter 2014-11-12: should they wind up in the catalog ? We
+    # could send them to PuppetDB separately, as something more
+    # special. There's no real need to send them to the agent
+    # @todo lutter 2014-11-12: should there be any dependency on +resource+ ?
+    # @todo lutter 2014-11-12: we need to somehow mark these resources so
+    # that we can distinguish them in PuppetDB from 'ordinary' resources
+    # @todo lutter 2014-11-12: check that each of these resources is
+    # actually a capability
+    produces.map { |prod| prod.safeevaluate(scope) }
+
     if code
       if @match # Only bother setting up the ephemeral scope if there are match variables to add into it
         begin
@@ -139,6 +151,7 @@ class Puppet::Resource::Type
     @match = nil
 
     @module_name = options[:module_name]
+    @produces = options[:produces] || []
   end
 
   # This is only used for node names, and really only when the node name
