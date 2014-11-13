@@ -170,7 +170,10 @@ class Puppet::Parser::AST::PopsBridge
     end
 
     def instantiate_ResourceTypeDefinition(o, modname)
-      Puppet::Resource::Type.new(:definition, o.name, @context.merge(args_from_definition(o, modname)))
+      args = args_from_definition(o, modname)
+      args[:produces] = o.produces.collect {|p| Expression.new(:value => p) }
+
+      Puppet::Resource::Type.new(:definition, o.name, @context.merge(args))
     end
 
     def instantiate_NodeDefinition(o, modname)
