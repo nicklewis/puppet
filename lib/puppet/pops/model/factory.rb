@@ -238,6 +238,12 @@ class Puppet::Pops::Model::Factory
     o
   end
 
+  def build_ProducesDefinition(o, name, resource)
+    o.name = name
+    o.resource = build(resource)
+    o
+  end
+
   # @param o [Model::NodeDefinition]
   # @param hosts [Array<Expression>] host matches
   # @param parent [Expression] parent node matcher
@@ -764,6 +770,10 @@ class Puppet::Pops::Model::Factory
 
   def self.FUNCTION(name, parameters, body)
     new(Model::FunctionDefinition, name, parameters, body)
+  end
+
+  def self.PRODUCES(name, resource)
+    new(Model::ProducesDefinition, name, resource)
   end
 
   def self.APPLICATION(name, parameters, body)
