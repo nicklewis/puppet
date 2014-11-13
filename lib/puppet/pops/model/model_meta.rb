@@ -282,11 +282,6 @@ module Puppet::Pops::Model
     contains_one_uni 'body', Expression
   end
 
-  # A resource type definition (a 'define' in the DSL).
-  #
-  class ResourceTypeDefinition < NamedDefinition
-  end
-
   class Application < NamedDefinition
   end
 
@@ -528,6 +523,13 @@ module Puppet::Pops::Model
   class ResourceExpression < AbstractResource
     contains_one_uni 'type_name', Expression, :lowerBound => 1
     contains_many_uni 'bodies', ResourceBody
+  end
+
+  # A resource type definition (a 'define' in the DSL).
+  #
+  class ResourceTypeDefinition < NamedDefinition
+    contains_many_uni 'produces', ResourceExpression
+    contains_many_uni 'consumes', Parameter
   end
 
   # A resource defaults sets defaults for a resource type. This class inherits from AbstractResource

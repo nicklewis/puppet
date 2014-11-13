@@ -238,6 +238,8 @@ class Puppet::Pops::Model::ModelTreeDumper < Puppet::Pops::Model::TreeDumper
     # the nil must be replaced with a string
     result = [nil, o.name]
     result << ["parameters"] + o.parameters.collect {|p| do_dump(p) } if o.parameters.size() > 0
+    result << ["produces"] + o.produces.collect { |p| do_dump(p) } if o.produces.size > 0
+    result << ["consumes"] + o.consumes.collect { |p| do_dump(p) } if o.consumes.size > 0
     if o.body
       result << do_dump(o.body)
     else
