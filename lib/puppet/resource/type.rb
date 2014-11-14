@@ -31,7 +31,7 @@ class Puppet::Resource::Type
 
   attr_accessor :file, :line, :doc, :code, :parent, :resource_type_collection
   attr_reader :namespace, :arguments, :behaves_like, :module_name
-  attr_reader :produces
+  attr_reader :produces, :consumes
 
   # Map from argument (aka parameter) names to Puppet Type
   # @return [Hash<Symbol, Puppet::Pops::Types::PAnyType] map from name to type
@@ -155,6 +155,10 @@ class Puppet::Resource::Type
 
     @module_name = options[:module_name]
     @produces = options[:produces] || []
+    # +options[:consumes]+ is an array of pairs +[name, value]+ (though
+    # value should always be nil, we don't care); turn it into an array of
+    # the names of the consumption params
+    @consumes = (options[:consumes] || []).map { |x| x[0].to_sym }
   end
 
   # This is only used for node names, and really only when the node name
@@ -285,8 +289,13 @@ class Puppet::Resource::Type
   # Set any arguments passed by the resource as variables in the scope.
   def set_resource_parameters(resource, scope)
     set = {}
+
     resource.to_hash.each do |param, value|
       param = param.to_sym
+      if consumes.include?(param)
+        value = find_capabilities(resource, scope, param, value)
+      end
+
       fail Puppet::ParseError, "#{resource.ref} does not accept attribute #{param}" unless valid_parameter?(param)
 
       exceptwrap { scope[param.to_s] = value }
@@ -360,6 +369,90 @@ class Puppet::Resource::Type
   end
 
   private
+
+  # Given the value of a capability parameter, make sure that all the
+  # capabilities mentioned/referenced in it are in the catalog
+  def find_capabilities(resource, scope, param, value)
+    # @todo lutter 2014-11-13: type switching, really ?
+    if value.is_a?(Array)
+      value.each { |x| find_capabilities(resource, scope, param, x) }
+    elsif value.is_a?(Puppet::Resource)
+      find_capability(resource, scope, param, value)
+    else
+      raise Puppet::DevError, "Don't know yet how to lookup up the value for capability #{param}; the value is #{value.inspect} of class #{value.class.name}"
+    end
+  end
+
+  def find_capability(resource, scope, name, cap)
+    # @todo lutter 2014-11-04: we unconditionally prefer the local catalog
+    # to PDB here; that makes it possible that the user violates
+    # per-environment uniqueness of the capability
+    unless cap_resource = scope.catalog.resource(cap.type, cap.title)
+      cap_resource = lookup_resource_from_puppetdb(name, cap)
+      scope.catalog.add_resource(cap_resource) if cap_resource
+    end
+
+    if cap_resource
+      # @todo lutter 2014-11-13: don't clobber existing requires, add to them
+      resource[:require] = cap_resource
+    else
+      # @todo lutter 2014-11-13: clean up debug output
+      scope.catalog.resources.each { |res| puts "=> #{res.ref}" }
+      fail Puppet::ParseError, "Could not find capability #{cap} for #{name}"
+    end
+  end
+
+  # Look the capability resource +cap+ from PuppetDB. +name+ is the name of
+  # the parameter in the consuming resource to which the looked up value
+  # will be bound, but is only used for error messages
+  def lookup_resource_from_puppetdb(name, cap)
+    # Consult PuppetDB
+    # @todo lutter 2014-11-04: this should use Puppet::Util::Puppetdb::Http
+    require 'net/http'
+    require 'cgi'
+    http = Net::HTTP.new("localhost", 8080)
+    # @todo lutter 2014-11-13: for applications, this needs to restrict
+    # the lookup by the application in which we are working
+    query = '["and", ["=", "type", "%s"], ["=", "title", "%s"]]' %
+      [cap.type.capitalize, cap.title]
+    response = http.get("/v3/resources?query=#{CGI.escape(query)}",
+                        { "Accept" => 'application/json'})
+
+    json = response.body
+
+    # @todo lutter 2014-11-04: use just JSON
+    data = PSON.parse(json)
+    data.is_a?(Array) or raise Puppet::DevError,
+      "Unexpected response from PuppetDB when looking up #{cap} " +
+      "for param #{name}: expected an Array but got #{data.inspect}"
+
+    # @todo lutter 2014-11-13: this was in the original capabilities
+    # prototype; can we really get entries back that do not have
+    # parameters set ?
+    data = data.select { |hash| hash["parameters"] }
+
+    data.size <= 1 or fail Puppet::ParseError,
+      "Multiple resources found in PuppetDB when looking up #{cap} " +
+      "for param #{name}: #{data.inspect}"
+
+    unless data.empty?
+      hash = data.first
+      resource = Puppet::Resource.new(hash["type"], hash["title"])
+      real_type = Puppet::Type.type(resource.type) or
+        fail Puppet::ParseError,
+          "Could not find resource type #{resource.type} returned from PuppetDB"
+      real_type.parameters.each do |param|
+        param = param.to_s
+        next if param == "name"
+        if value = hash["parameters"][param]
+          resource[param] = value
+        else
+          Puppet.debug "No capability value for #{resource}->#{param}"
+        end
+      end
+      return resource
+    end
+  end
 
   def convert_from_ast(name)
     value = name.value

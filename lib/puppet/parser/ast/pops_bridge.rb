@@ -114,27 +114,22 @@ class Puppet::Parser::AST::PopsBridge
       end
     end
 
-    def create_type_map(definition)
-      result = {}
-      # No need to do anything if there are no parameters
-      return result unless definition.parameters.size > 0
-
-      # No need to do anything if there are no typed parameters
-      typed_parameters = definition.parameters.select {|p| p.type_expr }
-      return result if typed_parameters.empty?
-
-      # If there are typed parameters, they need to be evaluated to produce the corresponding type
-      # instances. This evaluation requires a scope. A scope is not available when doing deserialization
-      # (there is also no initialized evaluator). When running apply and test however, the environment is
-      # reused and we may reenter without a scope (which is fine). A debug message is then output in case
-      # there is the need to track down the odd corner case. See {#obtain_scope}.
-      #
-      if scope = obtain_scope
-        typed_parameters.each do |p|
-          result[p.name] =  @@evaluator.evaluate(scope, p.type_expr)
-        end
+    def type_map(params, map = {})
+      # If there are typed parameters, they need to be evaluated to produce
+      # the corresponding type instances. This evaluation requires a
+      # scope. A scope is not available when doing deserialization (there
+      # is also no initialized evaluator). When running apply and test
+      # however, the environment is reused and we may reenter without a
+      # scope (which is fine). A debug message is then output in case there
+      # is the need to track down the odd corner case. See {#obtain_scope}.
+      scope = nil
+      params.select do |p|
+        p.type_expr
+      end.inject(map) do |result, p|
+        scope ||= obtain_scope
+        result[p.name] = @@evaluator.evaluate(scope, p.type_expr)
+        result
       end
-      result
     end
 
     # Obtains the scope or issues a warning if :global_scope is not bound
@@ -154,7 +149,7 @@ class Puppet::Parser::AST::PopsBridge
     def args_from_definition(o, modname)
       args = {
        :arguments => o.parameters.collect {|p| instantiate_Parameter(p) },
-       :argument_types => create_type_map(o),
+       :argument_types => type_map(o.parameters),
        :module_name => modname
       }
       unless is_nop?(o.body)
@@ -172,6 +167,14 @@ class Puppet::Parser::AST::PopsBridge
     def instantiate_ResourceTypeDefinition(o, modname)
       args = args_from_definition(o, modname)
       args[:produces] = o.produces.collect {|p| Expression.new(:value => p) }
+      args[:consumes] = o.consumes.collect {|c| instantiate_Parameter(c) }
+
+      # Treat consumed capabilities as ordinary parameters
+      args[:arguments] += args[:consumes]
+      # @todo lutter 2014-11-13: typing doesn't work quite right yet; we
+      # get errors of the form "expected parameter 'sql' to have type
+      # 'Sql', got Type[Sql['one']]"
+      # type_map(o.consumes, args[:argument_types])
 
       Puppet::Resource::Type.new(:definition, o.name, @context.merge(args))
     end
