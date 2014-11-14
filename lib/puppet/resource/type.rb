@@ -389,10 +389,13 @@ class Puppet::Resource::Type
     require 'net/http'
     require 'cgi'
     http = Net::HTTP.new("localhost", 8080)
-    # @todo lutter 2014-11-13: for applications, this needs to restrict
-    # the lookup by the application in which we are working
-    query = '["and", ["=", "type", "%s"], ["=", "title", "%s"]]' %
-      [cap.type.capitalize, cap.title]
+    # @todo lutter 2014-11-13: for applications, this needs to restrict the
+    # lookup by the application in which we are working by looking for the
+    # right 'producer'
+    query = ["and", ["=", "type", cap.type.capitalize],
+                    ["=", "title", cap.title],
+                    ["=", "tag", "producer:main"]].to_json
+
     response = http.get("/v3/resources?query=#{CGI.escape(query)}",
                         { "Accept" => 'application/json'})
 
