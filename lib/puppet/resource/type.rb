@@ -114,11 +114,18 @@ class Puppet::Resource::Type
     # could send them to PuppetDB separately, as something more
     # special. There's no real need to send them to the agent
     # @todo lutter 2014-11-12: should there be any dependency on +resource+ ?
-    # @todo lutter 2014-11-12: we need to somehow mark these resources so
-    # that we can distinguish them in PuppetDB from 'ordinary' resources
     # @todo lutter 2014-11-12: check that each of these resources is
     # actually a capability
-    produces.map { |prod| prod.safeevaluate(scope) }
+    produces.map { |prod| prod.safeevaluate(scope) }.flatten.map do |res|
+      # @todo lutter 2014-11-13: eventually, producer will be set to the
+      # logical scope in which produced resources need to be unique,
+      # e.g. the application instance in which we are working
+      # @todo lutter 2014-11-13: we would really like to use a dedicated
+      # metadata field to indicate the producer of a resource, but that
+      # requires changes to PuppetDB and its API; so for now, we just use
+      # tagging
+      scope.catalog.resource(res.type, res.title).tag("producer:main")
+    end
 
     if code
       if @match # Only bother setting up the ephemeral scope if there are match variables to add into it
