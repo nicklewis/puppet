@@ -576,13 +576,23 @@ agent on each node participating in the application
 USAGE
 -----
 
-puppet app <file.pp>
+puppet app [-j|--json <FILE>] <file.pp>
+
+OPTIONS
+-------
+
+* --json:
+  Write the environment catalog to <FILE> as a JSON document
 
 COPYRIGHT
 ---------
 Copyright (c) 2014 Puppet Labs, LLC Licensed under the Apache 2.0 License
 
     HELP
+  end
+
+  option("--json FILE", "-j") do |arg|
+    options[:json] = arg
   end
 
   def main
@@ -627,7 +637,10 @@ Copyright (c) 2014 Puppet Labs, LLC Licensed under the Apache 2.0 License
       puts
       env_graph[:applications][app.ref] = app_components
     end
-    puts JSON.pretty_generate(env_graph)
+    if options[:json]
+      File.open(options[:json], "w") { |fp| fp.puts JSON.pretty_generate(env_graph) }
+      puts "Wrote environment catalog to #{options[:json]}"
+    end
 
     # Build the NodeGraph
     ng = NodeGraph.new
