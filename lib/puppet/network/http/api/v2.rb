@@ -1,11 +1,12 @@
 module Puppet::Network::HTTP::API::V2
+  require 'puppet/network/http/api/v2/environment'
   require 'puppet/network/http/api/v2/environments'
   require 'puppet/network/http/api/v2/authorization'
 
   def self.routes
     path(%r{^/v2\.0}).
       get(Authorization.new).
-      chain(ENVIRONMENTS, NOT_FOUND)
+      chain(ENVIRONMENTS, ENVIRONMENT, NOT_FOUND)
   end
 
   private
@@ -28,5 +29,9 @@ module Puppet::Network::HTTP::API::V2
 
   ENVIRONMENTS = path(%r{^/environments$}).get(provide do
     Environments.new(Puppet.lookup(:environments))
+  end)
+
+  ENVIRONMENT = path(%r{^/environment/[^/]+$}).get(provide do
+    Environment.new
   end)
 end
