@@ -464,6 +464,10 @@ class AppCompiler
     @definitions[name] = o
   end
 
+  def find_Nop(o)
+    nil
+  end
+
   # @todo lutter 2014-11-19: callback from expand_CallMethodExpression via
   # call_function; patterned after
   # Puppet::Pops::Evaluator::EvaluatorImpl#evaluate_block_with_bindings
