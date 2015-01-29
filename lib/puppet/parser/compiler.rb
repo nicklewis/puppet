@@ -91,6 +91,14 @@ class Puppet::Parser::Compiler
       return unless @current_components.any? do |comp|
         comp.type == resource.type && comp.title == resource.title
       end
+      # @todo lutter 2015-01-29: we tag the overall component to indicate
+      # to which application it belongs. More of that fun is done in
+      # Puppet::Resource::Type#evaluate_code. One of the problems with
+      # using tags here is that PuppetDB does not consider a resource
+      # changed if all that changed were its tags, so that certain changes
+      # in hte manifest (e.g., just renaming an application instance) will
+      # lead to improperly tagged capabilities in PuppetDB
+      resource.tag(producer_tag)
     end
 
     @resources << resource
@@ -122,6 +130,17 @@ class Puppet::Parser::Compiler
     @catalog.add_class(name) unless name == ""
   end
 
+
+  # Return a tag that indicates in which context a resource has been
+  # created. This is used to tag produced capabilities according to the
+  # application they belong to
+  def producer_tag
+    if @current_app
+      "producer:#{@current_app.type}:#{@current_app.title}"
+    else
+      "producer:main"
+    end
+  end
 
   # Return a list of all of the defined classes.
   def_delegator :@catalog, :classes, :classlist

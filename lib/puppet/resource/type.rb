@@ -107,6 +107,19 @@ class Puppet::Resource::Type
 
     resource.add_edge_to_stage
 
+    # Tag producing resources with 'producer:main' to indicate it's at the
+    # toplevel if it hasn't been tagged with 'producer:APP:TITLE' which
+    # happens in Puppet::Parser::Compiler#add_resource
+    # @todo lutter 2015-01-29: clean up how we handle tagging
+    # @todo lutter 2014-11-13: we would really like to use a dedicated
+    # metadata field to indicate the producer of a resource, but that
+    # requires changes to PuppetDB and its API; so for now, we just use
+    # tagging
+    unless produces.empty?
+      resource.tags.find { |t| t.start_with?("producer:") } or
+        resource.tag("producer:main")
+    end
+
     # This, somewhat magically, puts the produced resources into the catalog
     # @todo lutter 2014-11-12: should they wind up in the catalog ? We
     # could send them to PuppetDB separately, as something more
@@ -114,16 +127,7 @@ class Puppet::Resource::Type
     # @todo lutter 2014-11-12: should there be any dependency on +resource+ ?
     # @todo lutter 2014-11-12: check that each of these resources is
     # actually a capability
-    produces.map { |prod| prod.safeevaluate(scope) }.flatten.map do |res|
-      # @todo lutter 2014-11-13: eventually, producer will be set to the
-      # logical scope in which produced resources need to be unique,
-      # e.g. the application instance in which we are working
-      # @todo lutter 2014-11-13: we would really like to use a dedicated
-      # metadata field to indicate the producer of a resource, but that
-      # requires changes to PuppetDB and its API; so for now, we just use
-      # tagging
-      scope.catalog.resource(res.type, res.title).tag("producer:main")
-    end
+    produces.map { |prod| prod.safeevaluate(scope) }
 
     if code
       if @match # Only bother setting up the ephemeral scope if there are match variables to add into it
@@ -370,7 +374,9 @@ class Puppet::Resource::Type
     # to PDB here; that makes it possible that the user violates
     # per-environment uniqueness of the capability
     unless cap_resource = scope.catalog.resource(cap.type, cap.title)
-      cap_resource = lookup_resource_from_puppetdb(name, cap)
+      prod_tag = resource.tags.find { |t| t.start_with?("producer:") } ||
+        "producer:main"
+      cap_resource = lookup_resource_from_puppetdb(name, cap, prod_tag)
       scope.catalog.add_resource(cap_resource) if cap_resource
     end
 
@@ -378,8 +384,6 @@ class Puppet::Resource::Type
       # @todo lutter 2014-11-13: don't clobber existing requires, add to them
       resource[:require] = cap_resource
     else
-      # @todo lutter 2014-11-13: clean up debug output
-      scope.catalog.resources.each { |res| puts "=> #{res.ref}" }
       fail Puppet::ParseError, "Could not find capability #{cap} for #{name}"
     end
   end
@@ -387,7 +391,7 @@ class Puppet::Resource::Type
   # Look the capability resource +cap+ from PuppetDB. +name+ is the name of
   # the parameter in the consuming resource to which the looked up value
   # will be bound, but is only used for error messages
-  def lookup_resource_from_puppetdb(name, cap)
+  def lookup_resource_from_puppetdb(name, cap, prod_tag)
     # Consult PuppetDB
     # @todo lutter 2014-11-04: this should use Puppet::Util::Puppetdb::Http
     require 'net/http'
@@ -398,8 +402,9 @@ class Puppet::Resource::Type
     # right 'producer'
     query = ["and", ["=", "type", cap.type.capitalize],
                     ["=", "title", cap.title],
-                    ["=", "tag", "producer:main"]].to_json
+                    ["=", "tag", prod_tag]].to_json
 
+    Puppet.notice "Capability lookup #{cap}: #{query}"
     response = http.get("/v3/resources?query=#{CGI.escape(query)}",
                         { "Accept" => 'application/json'})
 
@@ -416,6 +421,7 @@ class Puppet::Resource::Type
     # parameters set ?
     data = data.select { |hash| hash["parameters"] }
 
+    Puppet.notice "Capability lookup #{cap}: response #{data}"
     data.size <= 1 or fail Puppet::ParseError,
       "Multiple resources found in PuppetDB when looking up #{cap} " +
       "for param #{name}: #{data.inspect}"
