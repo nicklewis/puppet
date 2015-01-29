@@ -85,6 +85,8 @@ class Puppet::Parser::AST::PopsBridge
           instantiate_ResourceTypeDefinition(d, modname)
         when Puppet::Pops::Model::NodeDefinition
           instantiate_NodeDefinition(d, modname)
+        when Puppet::Pops::Model::Application
+          instantiate_ApplicationDefinition(d, modname)
         else
           raise Puppet::ParseError, "Internal Error: Unknown type of definition - got '#{d.class}'"
         end
@@ -177,6 +179,11 @@ class Puppet::Parser::AST::PopsBridge
       # type_map(o.consumes, args[:argument_types])
 
       Puppet::Resource::Type.new(:definition, o.name, @context.merge(args))
+    end
+
+    def instantiate_ApplicationDefinition(o, modname)
+      args = args_from_definition(o, modname)
+      Puppet::Resource::Type.new(:application, o.name, @context.merge(args))
     end
 
     def instantiate_NodeDefinition(o, modname)
