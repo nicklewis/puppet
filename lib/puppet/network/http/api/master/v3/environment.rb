@@ -1,9 +1,8 @@
 require 'json'
 
-class Puppet::Network::HTTP::API::V2::Environment
+class Puppet::Network::HTTP::API::Master::V3::Environment
   def call(request, response)
     require 'puppet/application/app'
-    Puppet[:parser] = 'future'
 
     env_name = request.routing_path.split('/').last
     env = Puppet.lookup(:environments).get(env_name)
@@ -39,17 +38,6 @@ class Puppet::Network::HTTP::API::V2::Environment
     end
 
     response.respond_with(200, "application/json", JSON.dump(env_graph))
-  end
-
-  private
-
-  def timeout(env)
-    ttl = @env_loader.get_conf(env.name).environment_timeout
-    if ttl == 1.0 / 0.0 # INFINITY
-      "unlimited"
-    else
-      ttl
-    end
   end
 
 end
