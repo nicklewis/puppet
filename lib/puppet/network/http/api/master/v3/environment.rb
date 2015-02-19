@@ -1,44 +1,34 @@
 require 'json'
+require 'puppet/parser/environment_compiler'
 
 class Puppet::Network::HTTP::API::Master::V3::Environment
   def call(request, response)
-    require 'puppet/application/app'
-
     env_name = request.routing_path.split('/').last
     env = Puppet.lookup(:environments).get(env_name)
 
-    if File.directory?(env.manifest)
-      manifests = Puppet::FileSystem::PathPattern.absolute(File.join(env.manifest, '**/*.pp')).glob
-    else
-      manifests = [env.manifest]
-    end
-
-    compiler = AppCompiler.new(env.name)
-
-    parser = Puppet::Pops::Parser::Parser.new
-    manifests.each do |manifest|
-      ast = parser.parse_file(manifest)
-      compiler.find(ast.current)
-    end
-
-    compiler.eval
+    catalog = Puppet::Parser::EnvironmentCompiler.compile(env).to_resource
 
     env_graph = {:environment => env.name, :applications => {}}
-    compiler.applications.each do |app|
+    applications = catalog.resources.select do |res|
+      type = res.resource_type
+      type.is_a?(Puppet::Resource::Type) && type.application?
+    end
+    applications.each do |app|
       app_components = {}
-      app.mapping.components.each do |comp|
-        app_components[comp.ref] = {:produces => comp.produces.map(&:ref), :consumes => comp.consumes.map(&:ref)}
-      end
-      app.mapping.components_by_node.each do |node, comps|
-        comps.each do |comp|
-          app_components[comp.ref][:node] = node
-        end
+      catalog.direct_dependents_of(app).each do |comp|
+        type = comp.resource_type
+        params = comp.to_hash
+        consumes = params.select { |p| type.consumes.include?(p) }.values
+        consumes = consumes.map { |c| Array(c) }.inject([], &:+).map(&:ref)
+        params = params.select { |p| ! type.consumes.include?(p) }
+        produces = catalog.direct_dependents_of(comp)
+
+        node = app['nodes'].find { |node, components| components.map(&:ref).include?(comp.ref) }.first.title
+        app_components[comp.ref] = {:produces => produces.map(&:ref), :consumes => consumes, :node => node}
       end
       env_graph[:applications][app.ref] = app_components
     end
-
     response.respond_with(200, "application/json", JSON.dump(env_graph))
   end
-
 end
 

@@ -94,6 +94,30 @@ class Puppet::Resource::Type
     return(klass == parent_type ? true : parent_type.child_of?(klass))
   end
 
+  # Evaluate the resources produced by the given resource. These resources are
+  # evaluated in a separate but identical scope from the rest of the resource.
+  def evaluate_produces(resource)
+    # Only defined types can produce capabilities
+    return unless definition?
+
+    scope = resource.scope.newscope(:namespace => namespace, :source => self, :resource => resource) unless resource.title == :main
+
+    set_resource_parameters(resource, scope)
+
+    # This, somewhat magically, puts the produced resources into the catalog
+    # @todo lutter 2014-11-12: should they wind up in the catalog ? We
+    # could send them to PuppetDB separately, as something more
+    # special. There's no real need to send them to the agent
+    # @todo lutter 2014-11-12: should there be any dependency on +resource+ ?
+    # @todo lutter 2014-11-12: check that each of these resources is
+    # actually a capability
+    produces.map do |prod|
+      produced_resource = prod.safeevaluate(scope).first
+      scope.catalog.add_edge(produced_resource, resource)
+      produced_resource
+    end
+  end
+
   # Now evaluate the code associated with this class or definition.
   def evaluate_code(resource)
 
@@ -120,14 +144,7 @@ class Puppet::Resource::Type
         resource.tag("producer:main")
     end
 
-    # This, somewhat magically, puts the produced resources into the catalog
-    # @todo lutter 2014-11-12: should they wind up in the catalog ? We
-    # could send them to PuppetDB separately, as something more
-    # special. There's no real need to send them to the agent
-    # @todo lutter 2014-11-12: should there be any dependency on +resource+ ?
-    # @todo lutter 2014-11-12: check that each of these resources is
-    # actually a capability
-    produces.map { |prod| prod.safeevaluate(scope) }
+    evaluate_produces(resource)
 
     if code
       if @match # Only bother setting up the ephemeral scope if there are match variables to add into it
