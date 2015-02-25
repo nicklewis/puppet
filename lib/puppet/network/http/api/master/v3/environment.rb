@@ -18,8 +18,8 @@ class Puppet::Network::HTTP::API::Master::V3::Environment
       catalog.direct_dependents_of(app).each do |comp|
         type = comp.resource_type
         params = comp.to_hash
-        consumes = params.select { |p| type.consumes.include?(p) }.values
-        consumes = consumes.map { |c| Array(c) }.inject([], &:+).map(&:ref)
+        consumes = params.select { |p| Array(type.consumes).include?(p) }.values
+        consumes = consumes.flatten.map(&:ref)
         params = params.select { |p| ! type.consumes.include?(p) }
         produces = catalog.direct_dependents_of(comp)
 
