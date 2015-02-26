@@ -23,8 +23,15 @@ class Puppet::Network::HTTP::API::Master::V3::Environment
         params = params.select { |p| ! type.consumes.include?(p) }
         produces = catalog.direct_dependents_of(comp)
 
-        node = app['nodes'].find { |node, components| components.map(&:ref).include?(comp.ref) }.first.title
-        app_components[comp.ref] = {:produces => produces.map(&:ref), :consumes => consumes, :node => node}
+        mapped_node = app['nodes'].find { |node, components| components.map(&:ref).include?(comp.ref) }
+
+        if ! mapped_node
+          raise Puppet::ParseError, "Component #{comp} is not mapped to any node"
+        else
+          mapped_node = mapped_node.first.title
+        end
+
+        app_components[comp.ref] = {:produces => produces.map(&:ref), :consumes => consumes, :node => mapped_node}
       end
       env_graph[:applications][app.ref] = app_components
     end
