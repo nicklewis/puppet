@@ -23,12 +23,14 @@ class Puppet::Network::HTTP::API::Master::V3::Environment
         params = params.select { |p| ! type.consumes.include?(p) }
         produces = catalog.direct_dependents_of(comp)
 
-        mapped_node = app['nodes'].find { |node, components| components.map(&:ref).include?(comp.ref) }
+        mapped_nodes = app['nodes'].select { |node, components| components.map(&:ref).include?(comp.ref) }.map { |node, components| node.title }
 
-        if ! mapped_node
+        if mapped_nodes.length > 1
+          raise Puppet::ParseError, "Component #{comp} is mapped to multiple nodes: #{mapped_nodes.join(', ')}"
+        elsif mapped_nodes.empty?
           raise Puppet::ParseError, "Component #{comp} is not mapped to any node"
         else
-          mapped_node = mapped_node.first.title
+          mapped_node = mapped_nodes.first
         end
 
         app_components[comp.ref] = {:produces => produces.map(&:ref), :consumes => consumes, :node => mapped_node}
