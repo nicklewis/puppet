@@ -378,7 +378,7 @@ class Puppet::Resource::Type
   def find_capabilities(resource, scope, param, value)
     # @todo lutter 2014-11-13: type switching, really ?
     if value.is_a?(Array)
-      value.each { |x| find_capabilities(resource, scope, param, x) }
+      value.flat_map { |x| find_capabilities(resource, scope, param, x) }
     elsif value.is_a?(Puppet::Resource)
       find_capability(resource, scope, param, value)
     else
