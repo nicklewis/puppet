@@ -293,6 +293,11 @@ class Puppet::Resource
     end
   end
 
+  def exports?(resource)
+    ex = [ self['export'] ].flatten # Array(self['export']) is broken
+    ex.include?(resource)
+  end
+
   # The resource's type implementation
   # @return [Puppet::Type, Puppet::Resource::Type]
   # @api private
