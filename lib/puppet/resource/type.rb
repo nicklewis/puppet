@@ -113,9 +113,18 @@ class Puppet::Resource::Type
     # @todo lutter 2014-11-12: should there be any dependency on +resource+ ?
     # @todo lutter 2014-11-12: check that each of these resources is
     # actually a capability
+    # @todo lutter 2015-04-01: (not an April's fool joke) Note that
+    # produced resources are always evaluated, since we need to find out
+    # their type and title before we can tell whether they should have been
+    # produced in the first place.
     produces.map do |prod|
       produced_resource = prod.safeevaluate(scope).first
-      scope.catalog.add_edge(produced_resource, resource)
+      if resource.exports?(produced_resource)
+        scope.catalog.add_edge(produced_resource, resource)
+      else
+        # safeevaluate puts the resource in the catalog, get rid of it
+        scope.catalog.remove_resource(produced_resource)
+      end
       produced_resource
     end
   end
