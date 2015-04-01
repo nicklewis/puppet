@@ -295,7 +295,10 @@ class Puppet::Resource::Catalog < Puppet::Graph::SimpleGraph
       remove_vertex!(resource) if vertex?(resource)
       @relationship_graph.remove_vertex!(resource) if @relationship_graph and @relationship_graph.vertex?(resource)
       @resources.delete(title_key)
-      resource.remove
+      # @todo lutter 2015-03-17: Puppet::Resource has no remove
+      # method. Does anything else that winds up as a resoure in the
+      # catalog actually have a remove method ? If not, just kill this line
+      resource.remove if resource.respond_to?(:remove)
     end
   end
 
