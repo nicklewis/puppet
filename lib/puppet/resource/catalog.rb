@@ -287,7 +287,12 @@ class Puppet::Resource::Catalog < Puppet::Graph::SimpleGraph
   def remove_resource(*resources)
     resources.each do |resource|
       title_key = title_key_for_ref(resource.ref)
-      @resource_table.delete(title_key)
+      # @todo lutter 2015-04-07: reset resource to what we had in our table
+      # so that removing a resource just by type and title works; the
+      # various methds below that remove edges to the resource fail if they
+      # aren't passed an exact reference to the resource object rather than
+      # just type and title
+      resource = @resource_table.delete(title_key)
       if aliases = @aliases[resource.ref]
         aliases.each { |res_alias| @resource_table.delete(res_alias) }
         @aliases.delete(resource.ref)
