@@ -6,6 +6,10 @@ class Puppet::Network::HTTP::API::Master::V3::Environment
     env_name = request.routing_path.split('/').last
     env = Puppet.lookup(:environments).get(env_name)
 
+    if env.nil?
+      raise Puppet::Network::HTTP::Error::HTTPNotFoundError.new("#{env_name} is not a known environment", Puppet::Network::HTTP::Issues::RESOURCE_NOT_FOUND)
+    end
+
     catalog = Puppet::Parser::EnvironmentCompiler.compile(env).to_resource
 
     env_graph = {:environment => env.name, :applications => {}}
