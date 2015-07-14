@@ -27,7 +27,7 @@ module Puppet::Resource::CapabilityFinder
     # empty, or by sticking produced resources into the environment catalog
     # and having the deployer make sure that catalog was committed before
     # running any nodes
-    response = http.get("/v3/resources?query=#{CGI.escape(query)}",
+    response = http.get("/pdb/query/v4/resources?query=#{CGI.escape(query)}",
                         { "Accept" => 'application/json'})
 
     json = response.body
