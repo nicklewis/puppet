@@ -67,6 +67,11 @@ AGENT_PACKAGES = {
 install_packages_on(master, MASTER_PACKAGES)
 install_packages_on(agents, AGENT_PACKAGES)
 
+if options[:is_puppetserver]
+  puppetserver_conf = File.join("#{master['puppetserver-confdir']}", "puppetserver.conf")
+  modify_tk_config(master, puppetserver_conf, 'puppet-admin' => {'client-whitelist' => [master.puppet('master')['certname']]})
+end
+
 # make sure install is sane, beaker has already added puppet and ruby
 # to PATH in ~/.ssh/environment
 agents.each do |agent|
