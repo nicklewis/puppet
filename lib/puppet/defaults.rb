@@ -233,6 +233,11 @@ module Puppet
         :type     => :boolean,
         :desc     => "Whether Puppet should manage the owner, group, and mode of files it uses internally",
     },
+    :delta => {
+      :default => false,
+      :type    => :boolean,
+      :desc    => "Only apply resources which have changed since the previous catalog."
+    },
     :onetime => {
         :default  => false,
         :type     => :boolean,

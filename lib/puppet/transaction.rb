@@ -90,6 +90,17 @@ class Puppet::Transaction
     block ||= method(:eval_resource)
     generator = AdditionalResourceGenerator.new(@catalog, nil, @prioritizer)
     @catalog.vertices.each { |resource| generator.generate_additional_resources(resource) }
+    if Puppet[:delta] && catalog.host_config?
+      # XXX This is obviously extremely inefficient
+      @catalog.vertices.each do |resource|
+        if resource.tagged?('delta')
+          relationship_graph.dependents(resource).each do |dep|
+            Puppet.debug "Adding delta tag to #{dep.ref} because it depends on #{resource.ref}"
+            dep.tag('delta')
+          end
+        end
+      end
+    end
 
     perform_pre_run_checks
 
@@ -344,6 +355,8 @@ class Puppet::Transaction
       resource.debug "Not tagged with #{tags.join(", ")}"
     elsif ! scheduled?(resource)
       resource.debug "Not scheduled"
+    elsif Puppet[:delta] && ! ignore_tags? && ! resource.tagged?('delta')
+      resource.debug "Not a delta resource"
     elsif failed_dependencies?(resource)
       # When we introduced the :whit into the graph, to reduce the combinatorial
       # explosion of edges, we also ended up reporting failures for containers

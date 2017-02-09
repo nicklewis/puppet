@@ -129,6 +129,27 @@ class Puppet::Configurer
     facts_hash
   end
 
+  def tag_delta_catalog(catalog, old_catalog)
+    delta_resources = catalog.resources.select do |res|
+      old_resource = old_catalog.resource(res.ref)
+      if old_resource
+        if old_resource.to_hash == res.to_hash
+          next false
+        else
+          Puppet.debug "#{res} is a delta resource because its previous parameters #{old_resource.to_hash} don't match its new parameters #{res.to_hash}"
+          next true
+        end
+      else
+        Puppet.debug "#{res} is a delta resource because it wasn't in the cached catalog"
+        next true
+      end
+    end
+    delta_resources.uniq.each do |res|
+      Puppet.debug "Adding delta tag to #{res.ref}"
+      res.tag('delta')
+    end
+  end
+
   def prepare_and_retrieve_catalog(options, query_options)
     # set report host name now that we have the fact
     options[:report].host = Puppet[:node_name_value]
@@ -145,10 +166,27 @@ class Puppet::Configurer
 
     # retrieve_catalog returns json catalog
     catalog = retrieve_catalog(query_options)
-    return convert_catalog(catalog, @duration) if catalog
-
-    Puppet.err "Could not retrieve catalog; skipping run"
-    nil
+    if catalog
+      converted_catalog = convert_catalog(catalog, @duration)
+      if Puppet[:delta]
+        if options[:cached_catalog]
+          begin
+            old_catalog = options[:cached_catalog].to_ral
+          rescue => e
+            Puppet.warning "Cached catalog is invalid, applying full catalog"
+            Puppet[:delta] = false
+          end
+          tag_delta_catalog(converted_catalog, old_catalog) if old_catalog
+        else
+          Puppet.warning "No cached catalog present, applying full catalog"
+          Puppet[:delta] = false
+        end
+      end
+      converted_catalog
+    else
+      Puppet.err "Could not retrieve catalog; skipping run"
+      nil
+    end
   end
 
   def prepare_and_retrieve_catalog_from_cache
@@ -252,6 +290,10 @@ class Puppet::Configurer
     end
 
     begin
+      if Puppet[:delta]
+        options[:cached_catalog] = retrieve_catalog_from_cache({:transaction_uuid => @transaction_uuid, :static_catalog => @static_catalog})
+      end
+
       unless Puppet[:node_name_fact].empty?
         query_options = get_facts(options)
       end

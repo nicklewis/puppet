@@ -55,6 +55,9 @@ class Puppet::Application::Agent < Puppet::Application
   option("--fqdn FQDN","-f")
   option("--test","-t")
   option("--verbose","-v")
+  option("--delta") do |arg|
+    Puppet[:delta] = true
+  end
 
   option("--fingerprint")
   option("--digest DIGEST")
